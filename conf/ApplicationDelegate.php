@@ -34,15 +34,21 @@ class conf_ApplicationDelegate {
 
          return Dataface_PermissionsTool::getRolePermissions($role);
              // Returns all of the permissions for the user's current role.
-      }
+     }
 
     public function beforeHandleRequest(){
-        Dataface_Application::getInstance()
-            ->addHeadContent(
+        $app =& Dataface_Application::getInstance();
+        $app->addHeadContent(
                 sprintf('<link rel="stylesheet" type="text/css" href="%s"/>',
                         htmlspecialchars(DATAFACE_SITE_URL.'/rchain-style.css')
                 )
             );
+
+        $query =& $app->getQuery();
+        if ( $query['-table'] == 'admin_settings' and
+             $query['-action'] != 'edit' ){
+            $query['-action'] = 'dashboard';
+        }
     }
 
 }
