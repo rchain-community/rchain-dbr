@@ -51,5 +51,11 @@ class conf_ApplicationDelegate {
         }
     }
 
+    function block__before_left_column() {
+        echo "<ul>\n";
+        echo "<li><a href='https://www.rchain.coop/'>RChain Co-op</a></li>\n";
+        echo "<li><a href='https://github.com/rchain/Members/blob/master/CONTRIBUTING.md'>RAM Guide</a></li>\n";
+        echo "</ul>\n";
+    }
 }
 ?>
