@@ -15,13 +15,23 @@ class conf_ApplicationDelegate {
      function getPermissions(&$record){
          $auth =& Dataface_AuthenticationTool::getInstance();
          $user =& $auth->getLoggedInUser();
-         if ( !isset($user) ) return Dataface_PermissionsTool::NO_ACCESS();
-             // if the user is null then nobody is logged in... no access.
-             // This will force a login prompt.
+
+         if ( !isset($user) ) return Dataface_PermissionsTool::READ_ONLY();
+
          $role = $user->val('permission');
+
+         // map github-speak to xataface-speak
+         // ISSUE: why doesn't permissions.ini EXTENDS work?
+         // cf. http://xataface.com/wiki/permissions.ini_file
          if ($role == 'WRITE') {
-             $role = 'EDIT';
+             $role = 'DELETE';
          }
+
+         // TODO: more managers
+         if ($user->val('login') == 'dckc') {
+             $role = 'MANAGER';
+         }
+
          return Dataface_PermissionsTool::getRolePermissions($role);
              // Returns all of the permissions for the user's current role.
       }
