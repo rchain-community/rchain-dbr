@@ -111,13 +111,19 @@ reward_vote.head(30)
 import sqlalchemy as sqla
 
 
-# In[312]:
+# In[454]:
 
-dbr = sqla.create_engine('mysql://dconnolly:PASSWORD_GOES_HERE@127.0.0.1:3506/bees_ants?charset=utf8')
+import json
+
+def theDatabase():
+    url = json.load(open("ram-dbr-db-access.json"))["url"]
+    return sqla.create_engine(url)
+
+dbr = theDatabase()
 pd.read_sql('select 1', dbr)
 
 
-# In[363]:
+# In[418]:
 
 from sys import stderr
 
@@ -155,8 +161,8 @@ class QuerySvc(object):
 
 def theQuerySvc():
     from urllib2 import build_opener
-    # API Key issued to dckc
-    repoRd = 'bb2b863e9da3acda4172d542a5d71d4de7cc7756'
+    from json import load
+    repoRd = load(open('ram-dbr-access-token.json'))['token']
     return QuerySvc(build_opener(), repoRd)
 
 
@@ -277,7 +283,13 @@ budget_vote.head()
 budget_vote[~budget_vote.voter.isin(ram_users.index)]
 
 
-# In[393]:
+# In[402]:
+
+x = budget_vote.set_index(['pay_period', 'issue_num', 'voter']).sort_index()
+budget_vote = x[~x.index.duplicated()].reset_index()
+
+
+# In[403]:
 
 dbr.execute('truncate table budget_vote')
 budget_vote[budget_vote.voter.isin(ram_users.index)].to_sql('budget_vote', con=dbr, if_exists='append', index=False)
@@ -298,11 +310,94 @@ reward_vote[~(reward_vote.voter.isin(ram_users.index) &
            ]
 
 
-# In[395]:
+# In[410]:
+
+x = reward_vote.groupby(['pay_period', 'issue_num', 'voter'])
+x = x[['percent']].sum()
+x[x.percent > 100]
+
+
+# In[414]:
+
+x = reward_vote.set_index(['pay_period', 'issue_num', 'voter', 'worker']).sort_index()
+x[x.index.duplicated()]
+
+
+# In[415]:
+
+reward_vote = x[~x.index.duplicated()].reset_index()
+
+
+# In[416]:
 
 dbr.execute('truncate table reward_vote')
 reward_vote[reward_vote.voter.isin(ram_users.index) &
-            reward_vote.worker.isin(ram_users.index) &
-            (reward_vote.percent > 0)
+            reward_vote.worker.isin(ram_users.index)
            ].to_sql('reward_vote', con=dbr, if_exists='append', index=False)
+
+
+# ## Suggesting rewards based on reactions
+
+# In[434]:
+
+reactions_q = '''
+{
+  repository(owner: "rchain", name: "Members") {
+    issues(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes {
+        number
+        title
+        updatedAt
+        comments(last: 50) {
+          nodes {
+            createdAt
+            author {
+              login
+            }
+            reactions(last: 50) {
+              nodes {
+                content
+                user {
+                  login
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+'''
+reactions = repoRd.runQ(reactions_q)
+len(reactions['repository']['issues']['nodes'])
+
+
+# In[445]:
+
+voter = 'dckc'
+
+voter_reactions = pd.DataFrame([
+        dict(issue_num=issue['number'],
+             # title=issue['title'],
+             worker=comment['author']['login'],
+             createdAt=comment['createdAt'],
+             #content=reaction['content'],
+             voter=reaction['user']['login']
+            )
+        for issue in reactions['repository']['issues']['nodes']
+        for comment in issue['comments']['nodes']
+        for reaction in comment['reactions']['nodes']
+        if reaction['user']['login'] == voter and
+        reaction['content'] in ['HEART', 'HOORAY', 'LAUGH', 'THUMBS_UP']
+    ]).set_index(['voter', 'issue_num', 'worker']).sort_index()
+voter_reactions
+
+
+# In[451]:
+
+reward_suggestions = voter_reactions.index.difference(
+  reward_vote.set_index(['voter', 'issue_num', 'worker']).index
+)
+pd.DataFrame(index=reward_suggestions)
 
