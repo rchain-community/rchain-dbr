@@ -68,6 +68,10 @@ class conf_ApplicationDelegate {
 
          }
 
+         if ($query['-table'] == 'invoice_info') {
+             // TODO: only your own!
+             $perms = Dataface_PermissionsTool::getRolePermissions('DELETE');
+         }
          return $perms;
      }
 
