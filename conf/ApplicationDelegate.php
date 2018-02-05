@@ -32,8 +32,11 @@ class conf_ApplicationDelegate {
              $login = $user->val('login');
              if ( $login == $record->getValue('voter') and
                   ($action == 'view_related_record'  or
+                   $action == 'view' or
+                   $action == 'delete' or
                    $action == 'edit') ) {
                  $perms['edit'] = 1;
+                 $perms['delete'] = 1;
              }
 
              else if ($query['-table'] == 'github_users' and
@@ -59,6 +62,7 @@ class conf_ApplicationDelegate {
                  else if ($viewing and
                           $app->getRecord()->val('voter') == $user->val('login') ) {
                      $perms['edit'] = 1;
+                     $perms['delete'] = 1;
                  }
              }
 
