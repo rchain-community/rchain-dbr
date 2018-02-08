@@ -401,3 +401,57 @@ reward_suggestions = voter_reactions.index.difference(
 )
 pd.DataFrame(index=reward_suggestions)
 
+
+# ## Authenticating Coop Members via Discord's OAuth 2 API
+# 
+# https://discordapp.com/developers/docs/topics/oauth2
+# https://discordapp.com/developers/docs/reference
+# 
+# https://requests-oauthlib.readthedocs.io/en/latest/oauth2_workflow.html#backend-application-flow
+# 
+
+# In[506]:
+
+import json
+from oauthlib.oauth2 import BackendApplicationClient
+from requests_oauthlib import OAuth2Session
+
+def discord_access(scope=['identify', 'guilds', 'connections']):
+    from pathlib import Path
+    with Path('discord_api_key.json').open() as fp:
+        creds = json.load(fp)
+    client_id, client_secret = creds['id'], creds['secret']
+    client = BackendApplicationClient(client_id=creds['id'])
+    oauth = OAuth2Session(client=client, scope=scope)
+    token = oauth.fetch_token(token_url='https://discordapp.com/api/oauth2/token',
+                              scope=scope,
+                              client_id=client_id,
+                              client_secret=client_secret)
+    return creds, client, oauth, token
+
+_creds, discord_client, discord_session, discord_token = discord_access()
+discord_token['scope']
+
+
+# In[507]:
+
+import requests
+
+authz = {'Authorization': '{ty} {tok}'.format(ty=discord_token['token_type'],
+                            tok=discord_token['access_token'])}
+x = requests.get('https://discordapp.com/api/v6/users/@me',
+             headers=authz)
+x.json()
+
+
+# In[508]:
+
+requests.get('https://discordapp.com/api/v6/users/@me/connections',
+             headers=authz).json()
+
+
+# In[505]:
+
+requests.get('https://discordapp.com/api/v6/guilds/{id}'.format(id='375365542359465989'),
+             headers=authz).json()
+
