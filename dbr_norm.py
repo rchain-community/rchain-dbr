@@ -373,7 +373,7 @@ reactions = repoRd.runQ(reactions_q)
 len(reactions['repository']['issues']['nodes'])
 
 
-# In[445]:
+# In[517]:
 
 voter = 'dckc'
 
@@ -388,10 +388,9 @@ voter_reactions = pd.DataFrame([
         for issue in reactions['repository']['issues']['nodes']
         for comment in issue['comments']['nodes']
         for reaction in comment['reactions']['nodes']
-        if reaction['user']['login'] == voter and
-        reaction['content'] in ['HEART', 'HOORAY', 'LAUGH', 'THUMBS_UP']
+        if reaction['content'] in ['HEART', 'HOORAY', 'LAUGH', 'THUMBS_UP']
     ]).set_index(['voter', 'issue_num', 'worker']).sort_index()
-voter_reactions
+voter_reactions[voter_reactions.index.get_level_values(0) == voter]
 
 
 # In[451]:
@@ -400,6 +399,41 @@ reward_suggestions = voter_reactions.index.difference(
   reward_vote.set_index(['voter', 'issue_num', 'worker']).index
 )
 pd.DataFrame(index=reward_suggestions)
+
+
+# ## Advogato style trust metric
+# 
+# http://advogato.p2b.tv/trust-metric.html
+
+# In[521]:
+
+edges = voter_reactions.reset_index()[['voter', 'worker']].sort_values(['voter', 'worker']).drop_duplicates()
+
+edges.head()
+
+
+# In[537]:
+
+import socialsim.net_flow as net_flow
+
+# capacities = [800, 200, 50, 12, 4, 2, 1] # fom net_flow.py
+capacities = [100, 50, 12, 4, 2, 1] # fom net_flow.py
+g = net_flow.NetFlow()
+
+for _, e in edges.iterrows():
+    g.add_edge(e.voter, e.worker)
+
+seed = ['lapin7', 'kitblake', u'jimscarver']
+superseed = "superseed"
+for s in seed:
+    g.add_edge(superseed, s)
+
+g.max_flow_extract(superseed, capacities)
+
+
+# In[ ]:
+
+
 
 
 # ## Authenticating Coop Members via Discord's OAuth 2 API
