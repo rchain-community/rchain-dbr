@@ -1,0 +1,5 @@
+pandas
+docopt
+xlrd
+sqlalchemy
+PyMySQL
