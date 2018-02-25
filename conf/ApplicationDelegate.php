@@ -47,6 +47,27 @@ class conf_ApplicationDelegate {
              }
          }
 
+         // Certify trusted users
+         if ( $query['-relationship'] == 'CertifiedBy') {
+             $in_listing = $query['-action'] == 'related_records_list';
+             $adding = $query['-action'] == 'new_related_record';
+
+             // OK to add certification
+             if ( $query['-table'] == 'github_users' ) {
+
+                 if ( $in_listing or $adding ) {
+                     $perms['add new related record'] = 1;
+                 }
+                 else if ($viewing and
+                          $app->getRecord()->val('voter') == $user->val('login') ) {
+                     $perms['edit'] = 1;
+                     $perms['delete'] = 1;
+                 }
+             }
+
+         }
+
+         // Vote on budgets and rewards
          if ( in_array($query['-relationship'],
                        array('BudgetVotes', 'RewardVotes')) ) {
              $in_listing = $query['-action'] == 'related_records_list';
