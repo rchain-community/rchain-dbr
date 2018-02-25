@@ -73,3 +73,17 @@ create table invoice_info (
   foreign key (pay_period) references pay_period(start_date) -- fk_invoice_period
   )
 ;
+
+
+drop table if exists trust_cert;
+
+create table trust_cert (
+        subject varchar(64) not null,
+        voter varchar(64) not null,
+        rating int not null,  -- TODO: check constraint: 1, 2, 3
+        cert_time timestamp not null default current_timestamp,
+        primary key(voter, subject),
+        foreign key (voter) references github_users(login), -- fk_cert_voter
+        foreign key (subject) references github_users(login) -- fk_cert_worker
+        )
+    ;
