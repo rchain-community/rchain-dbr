@@ -192,11 +192,11 @@ class TrustCert(object):
 
         flow = g.max_flow_extract(superseed, cls.capacities)
         ok = pd.DataFrame([
-            dict(login=login, value=value)
+            dict(login=login)
             for login, value in flow.items()
-            if login != 'superseed'
+            if login != 'superseed' and value > 0
         ]
-        ).set_index('login').sort_values('value')
+        ).set_index('login')
         ok['rating'] = rating
         return ok.merge(last_cert,
                         left_index=True, right_index=True, how='left')
