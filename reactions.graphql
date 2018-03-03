@@ -1,0 +1,27 @@
+{
+  repository(owner: "rchain", name: "bounties") {
+    issues(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      nodes {
+        number
+        title
+        updatedAt
+        comments(last: 50) {
+          nodes {
+            createdAt
+            author {
+              login
+            }
+            reactions(last: 50) {
+              nodes {
+                content
+                user {
+                  login
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
