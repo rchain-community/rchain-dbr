@@ -67,7 +67,7 @@ class Debug:
 
     def debug(self, str, level=1):
         if level <= self.debug_level:
-            print str
+            print(str)
 
     def warning(self, str):
         self.warnings.append(str)
@@ -97,7 +97,7 @@ class NetFlowPriv(Debug):
         """Initialize edge-oriented structures from node-oriented structures.
         """
 
-        nodes = nf.succs.keys()
+        nodes = list(nf.succs.keys())
         qn = len(nodes)
 
         self.node_sink = dict.fromkeys(nodes, 0)
@@ -198,7 +198,7 @@ class NetFlowPriv(Debug):
     def tweak_flow(self):
         """     tweaks the flow.  ??
         """
-        for i in self.node_flow.keys():
+        for i in list(self.node_flow.keys()):
 
             self.node_flow[i] -= self.node_sink[i]
             self.capacity[i] -= 1
@@ -532,7 +532,7 @@ class NetFlow(Debug):
         n_nodes = len(self.succs)
         assert n_nodes > 0, "no edges!"
 
-        capacity = dict.fromkeys(self.succs.keys(), -1)
+        capacity = dict.fromkeys(list(self.succs.keys()), -1)
 
         cap_sum = 0
 
@@ -582,7 +582,7 @@ class NetFlow(Debug):
         start_assign = [0] * len(caps)
         child_ix = [0] * len(caps)
 
-        for i in self.succs.keys():
+        for i in list(self.succs.keys()):
             resid_cap[i] = priv.capacity[i]
             pred[i] = -1
             children[i] = []
@@ -682,7 +682,7 @@ class NetFlow(Debug):
         priv.set_debuglevel(self.get_debuglevel())
 
         pred_list = self.assign_tree(seed, caps, priv)
-        node_list = self.succs.keys()
+        node_list = list(self.succs.keys())
 
         priv.max_flow(seed, pred_list, node_list)
 
@@ -707,7 +707,7 @@ class NetFlow(Debug):
         warnings = self.get_warnings()
         if len(warnings) > 0:
             for w in warnings:
-                print w
+                print(w)
 
         return u_flow
 
@@ -780,13 +780,12 @@ def test():
 
     e = f.max_flow_extract("-", [800, 200, 50, 12, 4, 2, 1])
 
-    for x in e.keys():
+    for x in list(e.keys()):
         if type(x) == type(0) and x > (len/4) and e[x] != 0:
-            raise ("untrusted group (%d->%d) linked to trusted (0->%d)\n" % \
-                    (len/4+1, len/2, len/4))
+            raise "untrusted group (%d->%d) linked to trusted (0->%d)\n"
 
-    print "random test passed ok"
-    print
+    print("random test passed ok")
+    print()
 
     # pretty test of max flow.
     #
@@ -820,11 +819,11 @@ def test():
     f.add_edge("seed", "heather")
     f.add_edge("seed2", "heather")
     f.add_edge("seed", 55)
-    f.add_edge("seed", u"luke")
+    f.add_edge("seed", "luke")
     f.add_edge(55, 10)
-    f.add_edge(10, u"luke")
-    f.add_edge(u"luke", "heather")
-    f.add_edge("heather", u"luke")
+    f.add_edge(10, "luke")
+    f.add_edge("luke", "heather")
+    f.add_edge("heather", "luke")
     f.add_edge("heather", "flat-faced cat")
     f.add_edge("flat-faced cat", "heather")
     f.add_edge("luke", "flat-faced cat")
@@ -839,19 +838,19 @@ def test():
     f.add_edge("bob", "mary")
     f.add_edge("mary", "bob")
 
-    print "pretty node graph (yes, the numbers 55 and 10 are nodes):"
+    print("pretty node graph (yes, the numbers 55 and 10 are nodes):")
     pprint(f.succs)
-    print
+    print()
 
     e = f.max_flow_extract("-", [800, 200, 50, 12, 4, 2, 1])
-    print "supersink as seed - avg_capacity:", f.avg_capacity
+    print("supersink as seed - avg_capacity:", f.avg_capacity)
     pprint(e)
-    print
+    print()
 
     e = f.max_flow_extract("heather", [800, 200, 50, 12, 4, 2, 1])
-    print "heather as seed - avg_capacity:", f.avg_capacity
+    print("heather as seed - avg_capacity:", f.avg_capacity)
     pprint(e)
-    print
+    print()
 
 if __name__ == '__main__':
     test()
