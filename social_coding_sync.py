@@ -56,9 +56,9 @@ def main(argv, cwd, build_opener, create_engine):
     elif opt['trusted']:
         dbr = db()
         trusted = pd.concat([
-            TrustCert.trust_flow(dbr, rating)
+            TrustCert.trust_flow(dbr, rating).reset_index()
             for rating in TrustCert.ratings])
-        trusted = trusted.reset_index().set_index(['rating', 'login'])
+        trusted = trusted.groupby('login').max()
         trusted = trusted.sort_index()
         trusted.to_sql('authorities', if_exists='replace', con=dbr,
                        dtype=noblob(trusted))
