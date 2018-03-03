@@ -109,6 +109,26 @@ class conf_ApplicationDelegate {
              $query['-action'] != 'edit' ){
             $query['-action'] = 'dashboard';
         }
+        
+        ###################
+		#Here I check to see if they are coming from the Discord login. If they are, we need to check to see if they are a coop member.
+		if(array_key_exists('discord_oauth_callback', $query) && $query['discord_oauth_callback'] == 'true')
+		{
+			$auth =& Dataface_AuthenticationTool::getInstance();
+			$user =& $auth->getLoggedInUser();
+			#make sure they are actually logged in
+			if(isset($user))
+			{
+				$discordOauth = new discordOauthClass();
+				#validate the user
+				if($discordOauth->checkIfUserValidCoopMember() === True)
+				{
+					#then save the validation flag to database
+					$user->setValue('verified_coop', 1);
+                    $user->save(); 
+				}
+			}
+		}
     }
 
     function block__before_left_column() {
