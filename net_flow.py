@@ -175,7 +175,7 @@ class NetFlowPriv(Debug):
             caps[node] = cap
 
         for node in node_list:
-            if pred[node] >= 0:
+            if pred[node] != -1:
                 n = node
                 last = -1
 
