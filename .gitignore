@@ -1,2 +1,5 @@
 conf.ini
 *~
+xataface/
+vendor/
+templates_c/

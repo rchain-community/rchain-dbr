@@ -1,8 +1,15 @@
 See https://github.com/rchain/Members/issues/260
 
+## Instructions
+  - Install xataface
+  - use composer to install all dependencies
+  - copy conf.ini.example to conf.ini and replace params with correct values.
+  - copy xataface_template/modules to your xataface installation/modules folder
+  - create github app, discord app, and discord bot. Use keys and tokens provided to populate conf.ini. Dont forget to add in the callback URLs
+  
+  
 ## TODO
 
-  - github OAuth login
   - voter_gh: don't let user choose; use their login credentials
   - you can only edit your own votes
     - new votes obsolete old votes?
