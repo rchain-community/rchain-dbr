@@ -28,6 +28,9 @@ invoice_formatted=Invoice Export
 auth_type=XDB
 users_table = github_users
 username_column = login
+;;This next field is called the password_column, however we are using it in this case as a temporary session token. 
+;;We are sticking with the "password_column" name here because it is the name that the xataface built in
+;;authentication and session management uses. See here: http://xataface.com/wiki/authentication
 password_column = session_token
 verified_coop_column = verified_coop
 
