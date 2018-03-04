@@ -34,6 +34,9 @@ username_column = login
 password_column = session_token
 verified_coop_column = verified_coop
 
+[password]
+    encryption=md5
+    
 [history]
 enabled = 1
 

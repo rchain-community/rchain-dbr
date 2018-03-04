@@ -6,6 +6,8 @@
 
 session_start();
 
+require __DIR__ . '/lib/xataface_functions.php';
+
 #get config
 $ini_array = parse_ini_file("conf.ini");
 $client_id = $ini_array['github_app_client_id'];
@@ -153,7 +155,9 @@ foreach($github_data as $key=>$val)
 
 
 #randomly generate the temporary session token
-$session_token = md5(uniqid(rand(), true));
+#$session_token = md5(uniqid(rand(), true));
+#this is CSPRNG. Also saved in database as md5
+$session_token = getToken(40);
 
 $sql = "INSERT into ".$ini_array['users_table']." (".$ini_array['username_column'].", ".$ini_array['password_column'].", name, location, email, bio, websiteUrl, avatarUrl, createdAt) " .
         "VALUES ('".$github_data['login']."', '".$session_token."',  '".$github_data['name']."', '".$github_data['location']."', '".$github_data['email']."', '".$github_data['bio']."', '".$github_data['website_url']."', '".$github_data['avatar_url']."', '".$github_data['created_at']."') " .
