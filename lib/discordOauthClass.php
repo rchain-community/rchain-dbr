@@ -102,7 +102,7 @@
 			}
 			
 			#the user is confirmed to be a coop member now. Lets add it to the database
-			return True;
+			return $user;
 		}
 		
 		public function printError($error)
