@@ -52,5 +52,10 @@ correspond to `github_auth_callback.php`.
   - money datatype: is integer dollars good enough?
   - [dashboard](http://xataface.com/wiki/Creating_a_Dashboard)
 
-**PHP is horrible. Is there something equivalent to xataface for
-node.js? Or at least python?**
+### Beyond PHP
+
+Please excuse the use of PHP; [Rholang][] isn't here yet. :-)
+
+[Rholang]: https://developer.rchain.coop/
+
+
