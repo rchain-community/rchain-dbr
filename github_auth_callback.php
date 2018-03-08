@@ -17,14 +17,7 @@ $url = $ini_array['github_api_url'];
 #if there is no code, then they haven't been redirected here from github, so lets send them to github
 if(!array_key_exists('code', $_GET) || !isset($_GET['code']))
 {
-	if($ini_array['github_include_email_scope'])
-	{
-		$auth_url = 'https://github.com/login/oauth/authorize?client_id='.$client_id.'&scope=user:email';
-	}
-	else
-	{
-		$auth_url = 'https://github.com/login/oauth/authorize?client_id='.$client_id;
-	}
+	$auth_url = 'https://github.com/login/oauth/authorize?client_id='.$client_id;
     header('Location: '.$auth_url);
 }
 
@@ -93,47 +86,7 @@ $github_data['website_url'] = $response->blog;
 $github_data['avatar_url'] = $response->avatar_url;
 $github_data['created_at'] = $response->created_at;
 
-if($ini_array['github_include_email_scope'])
-{
-	#next get the private email address
-	$json_url = 'https://api.github.com/user/emails?'.$result;
-	$options  = array('http' => array('user_agent'=> $_SERVER['HTTP_USER_AGENT']));
-	$context  = stream_context_create($options);
-
-	if(!$response = file_get_contents($json_url, false, $context))
-	{
-		echo "failed to connect to github";
-		exit();
-	}
-
-	if(strpos($response, 'error') !== false) 
-	{
-		echo "Github responded with an error. Cannot login.";
-		exit();
-	}
-
-	$response = json_decode($response);
-
-	#if more than one in array, we need to go through and find the primary one.
-	if(count($response) > 1)
-	{
-		foreach($response as $email_object)
-		{
-			if($email_object->primary == 1)
-			{
-				$github_data['email'] = $email_object->email;
-			}
-		}
-	}
-	else
-	{
-		$github_data['email'] = $response[0]->email;
-	}
-}
-else
-{
-	$github_data['email'] = '';
-}
+$github_data['email'] = '';
 
 #now the user is authorized from github, so in order to user the built in xataface session management, 
 #we need to tell it to login like a normal user. So lets create a temporary password for this session,
