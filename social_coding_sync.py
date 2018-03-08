@@ -1,6 +1,7 @@
 """social_coding_sync -- sync users, issues, endorsements from github
 
 Usage:
+  social_coding_sync [options] issue_sync
   social_coding_sync [options] reactions_get
   social_coding_sync [options] trust_seed
   social_coding_sync [options] trusted
@@ -43,10 +44,17 @@ def main(argv, cwd, build_opener, create_engine):
             url = json.load(txt_in)["url"]
         return create_engine(url)
 
-    if opt['reactions_get']:
+    def tok():
         with (cwd / opt['--repo-rd']).open() as cred_fp:
-            token = json.load(cred_fp)['token']
-        rs = Reactions(build_opener(), token)
+            return json.load(cred_fp)['token']
+
+    if opt['issue_sync']:
+        issues = Issues(build_opener(), tok())
+        issue_data = Issues.data(issues.fetch_pages())
+        issue_data.to_sql(db())
+
+    elif opt['reactions_get']:
+        rs = Reactions(build_opener(), tok())
         info = rs.fetch(dest=cache / 'reactions.json')
         log.info('%d reactions saved to %s',
                  len(info['repository']['issues']['nodes']), opt['--repo-rd'])
@@ -95,10 +103,11 @@ class QuerySvc(object):
             raise IOError(body['errors'])
         return body['data']
 
-    def fetch(self, dest):
+    def fetch(self, dest=None):
         info = self.runQ(self.query)
-        with dest.open('w') as data_fp:
-            json.dump(info, data_fp)
+        if dest:
+            with dest.open('w') as data_fp:
+                json.dump(info, data_fp)
         return info
 
 
@@ -123,6 +132,39 @@ class Reactions(QuerySvc):
         ])
         reactions.createdAt = pd.to_datetime(reactions.createdAt)
         return reactions
+
+
+class Issues(QuerySvc):
+    query = pkg.resource_string(__name__, 'issues.graphql').decode('utf-8')
+
+    def _page_q(self, cursor, issueState=None):
+        maybeParens = lambda s: '(' + s + ')' if s else ''
+        fmtParams = lambda params: ', '.join(
+            ('$' + k + ':' + ty) if val else ''
+            for k, (val, ty) in params.items())
+        pageInfo = {'endCursor': None}
+        return (
+            self.query
+            .replace('PARAMETERS', maybeParens(
+                fmtParams({cursor: [cursor, 'String!'],
+                           issueState: [issueState, '[IssueState!]']})))
+            .replace('CURSOR', ' after: $cursor' if cursor else '')
+            .replace('STATES', ' states: $issueState' if issueState else ''))
+
+    def fetch_pages(self):
+        pageInfo = {'endCursor': None}
+        pages = []
+        while 1:
+            info = self.run_q(self._page_q(pageInfo['endCursor']))
+            pageInfo = info['issues']['pageInfo']
+            pages.append(info)
+            if 'hasNextPage' not in pageInfo:
+                return pages
+
+    @classmethod
+    def data(self, info):
+        import pdb; pdb.set_trace()
+        raise NotImplementedError
 
 
 class TrustCert(object):
