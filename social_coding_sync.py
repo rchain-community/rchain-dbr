@@ -44,15 +44,20 @@ def main(argv, cwd, build_opener, create_engine):
         return create_engine(url)
 
     if opt['reactions_get']:
-        Reactions.get(build_opener(),
-                      cred_path=cwd / opt['--repo-rd'],
-                      dest=cache / 'reactions.json')
+        with (cwd / opt['--repo-rd']).open() as cred_fp:
+            token = json.load(cred_fp)['token']
+        rs = Reactions(build_opener(), token)
+        info = rs.fetch(dest=cache / 'reactions.json')
+        log.info('%d reactions saved to %s',
+                 len(info['repository']['issues']['nodes']), opt['--repo-rd'])
+
     elif opt['trust_seed']:
         with (cache / 'reactions.json').open('r') as fp:
             reaction_info = json.load(fp)
         dbr = db()
         reactions = Reactions.normalize(reaction_info)
         TrustCert.seed_from_reactions(reactions, dbr).reset_index()
+
     elif opt['trusted']:
         dbr = db()
         trusted = pd.concat([
@@ -67,16 +72,11 @@ def main(argv, cwd, build_opener, create_engine):
 
 class QuerySvc(object):
     endpoint = 'https://api.github.com/graphql'
+    query = "query { viewer { login } }"
 
     def __init__(self, urlopener, token):
         self.__urlopener = urlopener
         self.__token = token
-
-    @classmethod
-    def make(cls, cred_path, web_ua):
-        with cred_path.open() as cred_fp:
-            repoRd = json.load(cred_fp)['token']
-        return cls(web_ua, repoRd)
 
     def runQ(self, query, variables={}):
         req = Request(
@@ -95,25 +95,17 @@ class QuerySvc(object):
             raise IOError(body['errors'])
         return body['data']
 
+    def fetch(self, dest):
+        info = self.runQ(self.query)
+        with dest.open('w') as data_fp:
+            json.dump(info, data_fp)
+        return info
 
-class Reactions(object):
+
+class Reactions(QuerySvc):
     query = pkg.resource_string(__name__, 'reactions.graphql').decode('utf-8')
 
     endorsements = ['HEART', 'HOORAY', 'LAUGH', 'THUMBS_UP']
-
-    @classmethod
-    def get(cls, web_ua, cred_path, dest):
-        with cred_path.open() as cred_fp:
-            repoRd = json.load(cred_fp)['token']
-        qs = QuerySvc(web_ua, repoRd)
-        # login = qs.runQ('query { viewer { login }}')
-        # log.info(login)
-
-        reaction_info = qs.runQ(Reactions.query)
-        with dest.open('w') as data_fp:
-            json.dump(reaction_info, data_fp)
-        log.info('%d reactions saved to %s',
-                 len(reaction_info['repository']['issues']['nodes']), dest)
 
     @classmethod
     def normalize(cls, info):
