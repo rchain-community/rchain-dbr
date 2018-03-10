@@ -1,7 +1,7 @@
 """social_coding_sync -- sync users, issues, endorsements from github
 
 Usage:
-  social_coding_sync [options] issue_sync
+  social_coding_sync [options] issues_fetch
   social_coding_sync [options] reactions_get
   social_coding_sync [options] trust_seed
   social_coding_sync [options] trusted
@@ -40,26 +40,32 @@ def main(argv, cwd, build_opener, create_engine):
     cache = cwd / opt['--cache']
 
     def db():
+        log.info('DB access: %s', opt['--db-access'])
         with (cwd / opt['--db-access']).open('r') as txt_in:
             url = json.load(txt_in)["url"]
         return create_engine(url)
 
     def tok():
+        log.info('GitHub repo read token file: %s', opt['--repo-rd'])
         with (cwd / opt['--repo-rd']).open() as cred_fp:
             return json.load(cred_fp)['token']
 
-    if opt['issue_sync']:
+    if opt['issues_fetch']:
         issues = Issues(build_opener(), tok())
-        issue_data = Issues.data(issues.fetch_pages())
-        issue_data.to_sql(db())
+        issueInfo = issues.fetch_pages()
+        log.info('Saving %d pages of issueInfo to %s',
+                 len(issueInfo), opt['--cache'])
+        with (cache / 'issues.json').open('w') as fp:
+            json.dump(issueInfo, fp)
 
     elif opt['reactions_get']:
         rs = Reactions(build_opener(), tok())
         info = rs.fetch(dest=cache / 'reactions.json')
         log.info('%d reactions saved to %s',
-                 len(info['repository']['issues']['nodes']), opt['--repo-rd'])
+                 len(info['repository']['issues']['nodes']), opt['--cache'])
 
     elif opt['trust_seed']:
+        log.info('using cache %s to get saved reactions', opt['--cache'])
         with (cache / 'reactions.json').open('r') as fp:
             reaction_info = json.load(fp)
         dbr = db()
@@ -140,14 +146,15 @@ class Issues(QuerySvc):
     def _page_q(self, cursor, issueState=None):
         maybeParens = lambda s: '(' + s + ')' if s else ''
         fmtParams = lambda params: ', '.join(
-            ('$' + k + ':' + ty) if val else ''
-            for k, (val, ty) in params.items())
-        pageInfo = {'endCursor': None}
-        return (
+            part
+            for k, (val, ty) in params.items()
+            for part in ([('$' + k + ':' + ty)] if val else []))
+        paramInfo = {'cursor': [cursor, 'String!'],
+                     'issueState': [issueState, '[IssueState!]']}
+        variables = {k: v for (k, [v, _t]) in paramInfo.items()}
+        return variables, (
             self.query
-            .replace('PARAMETERS', maybeParens(
-                fmtParams({cursor: [cursor, 'String!'],
-                           issueState: [issueState, '[IssueState!]']})))
+            .replace('PARAMETERS', maybeParens(fmtParams(paramInfo)))
             .replace('CURSOR', ' after: $cursor' if cursor else '')
             .replace('STATES', ' states: $issueState' if issueState else ''))
 
@@ -155,14 +162,16 @@ class Issues(QuerySvc):
         pageInfo = {'endCursor': None}
         pages = []
         while 1:
-            info = self.run_q(self._page_q(pageInfo['endCursor']))
-            pageInfo = info['issues']['pageInfo']
+            variables, query = self._page_q(pageInfo['endCursor'])
+            info = self.runQ(query, variables)
+            pageInfo = info.get('repository', {}).get('issues', {}).get('pageInfo', {})
+            log.info('issues pageInfo: %s', pageInfo)
             pages.append(info)
-            if 'hasNextPage' not in pageInfo:
+            if not pageInfo.get('hasNextPage', False):
                 return pages
 
     @classmethod
-    def data(self, info):
+    def data(self, pages):
         import pdb; pdb.set_trace()
         raise NotImplementedError
 
