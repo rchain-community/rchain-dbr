@@ -2,6 +2,7 @@
 
 Usage:
   social_coding_sync [options] issues_fetch
+  social_coding_sync [options] issues_insert
   social_coding_sync [options] reactions_get
   social_coding_sync [options] trust_seed
   social_coding_sync [options] trusted
@@ -37,8 +38,6 @@ def main(argv, cwd, build_opener, create_engine):
     opt = docopt(__doc__.split('\n..', 1)[0], argv=argv[1:])
     log.debug('opt: %s', opt)
 
-    cache = cwd / opt['--cache']
-
     def db():
         log.info('DB access: %s', opt['--db-access'])
         with (cwd / opt['--db-access']).open('r') as txt_in:
@@ -50,13 +49,26 @@ def main(argv, cwd, build_opener, create_engine):
         with (cwd / opt['--repo-rd']).open() as cred_fp:
             return json.load(cred_fp)['token']
 
+    def cache_open(filename, mode, what):
+        path = cwd / opt['--cache'] / filename
+        log.info('%s %s to %s',
+                 'Writing' if mode == 'w' else 'Reading',
+                 what, path)
+        return path.open(mode=mode)
+
+
     if opt['issues_fetch']:
         issues = Issues(build_opener(), tok())
         issueInfo = issues.fetch_pages()
-        log.info('Saving %d pages of issueInfo to %s',
-                 len(issueInfo), opt['--cache'])
-        with (cache / 'issues.json').open('w') as fp:
+        with cache_open('issues.json', mode='w',
+                        what='%d pages of issues' % len(issueInfo)) as fp:
             json.dump(issueInfo, fp)
+
+    elif opt['issues_insert']:
+        with cache_open('issues.json', mode='r',
+                        what='issueInfo') as fp:
+            issuePages = json.load(fp)
+        Issues.db_sync(db(), Issues.data(issuePages))
 
     elif opt['reactions_get']:
         rs = Reactions(build_opener(), tok())
@@ -171,9 +183,31 @@ class Issues(QuerySvc):
                 return pages
 
     @classmethod
-    def data(self, pages):
-        import pdb; pdb.set_trace()
-        raise NotImplementedError
+    def data(self, pages,
+             repo='rchain/bounties'):
+        df = pd.DataFrame([
+            dict(num=node['number'],
+                 title=node['title'],
+                 updatedAt=node['updatedAt'],
+                 state=node['state'],
+                 repo=repo)
+            for page in pages
+            for node in page['repository']['issues']['nodes']
+        ])
+        # df['updatedAt'] = pd.to_datetime(df.updatedAt)
+        df['updatedAt'] = df.updatedAt.str.replace('T', ' ').str.replace('Z', '')
+        return df
+
+    @classmethod
+    def db_sync(cls, db, data):
+        with db.begin() as trx:
+            trx.execute('''
+            insert into issue (num, title, updatedAt, state, repo)
+            values (%(num)s, %(title)s, %(updatedAt)s, %(state)s, %(repo)s)
+            on duplicate key update
+            num = values(num), title=values(title), updatedAt=values(updatedAt),
+            state=values(state), repo=values(repo)
+            ''', data.to_dict(orient='records'))
 
 
 class TrustCert(object):
