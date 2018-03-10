@@ -30,6 +30,25 @@ create table admin_settings (
 
 drop table if exists budget_vote;
 
+CREATE TABLE `github_users` (
+  `login` varchar(22) NOT NULL,
+  `followers` bigint(20) DEFAULT NULL,
+  `name` varchar(31) DEFAULT NULL,
+  `location` varchar(39) DEFAULT NULL,
+  `email` varchar(30) DEFAULT NULL,
+  `bio` varchar(161) DEFAULT NULL,
+  `websiteUrl` varchar(42) DEFAULT NULL,
+  `avatarUrl` varchar(57) DEFAULT NULL,
+  `permission` varchar(9) DEFAULT NULL,
+  `createdAt` datetime DEFAULT NULL,
+  `session_token` varchar(64) DEFAULT NULL,
+  `verified_coop` bigint(20) unsigned DEFAULT NULL,
+  PRIMARY KEY (`login`),
+  KEY `ix_github_users_login` (`login`)
+)
+;
+
+
 create table budget_vote (
   pay_period date not null,
   issue_num integer not null,
