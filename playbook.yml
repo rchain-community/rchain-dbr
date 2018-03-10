@@ -5,7 +5,7 @@
     htdocs: /home/public
     url_path: rchain-dbr-beta
     install_dir: "{{ htdocs }}/{{ url_path }}"
-    xf_link: "{{ install_dir }}/xataface"
+    xf_dir: "{{ install_dir }}/xataface-2.1.3"
   tasks:
     - name: check out gauth branch of rchain-dbr
       git:
@@ -53,7 +53,7 @@
         PATH: "{{ install_dir }}/bin:/usr/local/bin:/usr/bin:/bin"
     - name: check for xataface installation
       stat:
-        path: "{{ xf_link }}"
+        path: "{{ xf_dir }}"
       register: xf
     - name: "Download xataface 2.1.3"
       get_url:
@@ -69,17 +69,8 @@
         remote_src: yes
         dest: "{{ install_dir }}"
       when: not xf.stat.exists
-    - name: link installed xataface version
-      # ISSUE: host configures apache to not follow symlinks
-      # hard links don't seem to work.
-      # index.php links directly to /xataface/
-      # other places are parameterized.
-      file:
-        state: hard
-        path: "{{ xf_link }}"
-        src: "{{ install_dir }}/xataface-2.1.3"
     - name: install XDB module
       synchronize:
         src: "{{ install_dir }}/xataface_template/modules/"
-        dest: "{{ xf_link }}/modules/"
+        dest: "{{ xf_dir }}/modules/"
       delegate_to: "{{ inventory_hostname }}"
