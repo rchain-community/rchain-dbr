@@ -1,6 +1,6 @@
 query PARAMETERS {
   repository(owner:"rchain", name:"bounties") {
-    issues(first: 100 CURSOR STATES) {
+    issues(first: 100 CURSOR) {
       pageInfo {
         endCursor,
         hasNextPage

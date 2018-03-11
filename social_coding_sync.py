@@ -3,6 +3,8 @@
 Usage:
   social_coding_sync [options] issues_fetch
   social_coding_sync [options] issues_insert
+  social_coding_sync [options] users_fetch
+  social_coding_sync [options] users_insert
   social_coding_sync [options] reactions_get
   social_coding_sync [options] trust_seed
   social_coding_sync [options] trusted
@@ -68,7 +70,20 @@ def main(argv, cwd, build_opener, create_engine):
         with cache_open('issues.json', mode='r',
                         what='issueInfo') as fp:
             issuePages = json.load(fp)
-        Issues.db_sync(db(), Issues.data(issuePages))
+        Issues.db_sync(db(), Issues.data(issuePages), 'issue')
+
+    elif opt['users_fetch']:
+        user_q = Collaborators(build_opener(), tok())
+        userInfo = user_q.fetch_pages()
+        with cache_open('users.json', mode='w',
+                        what='%d pages of users' % len(userInfo)) as fp:
+            json.dump(userInfo, fp)
+
+    elif opt['users_insert']:
+        with cache_open('users.json', mode='r',
+                        what='userInfo') as fp:
+            userPages = json.load(fp)
+        Collaborators.db_sync(db(), Collaborators.data(issuePages), 'github_users')
 
     elif opt['reactions_get']:
         rs = Reactions(build_opener(), tok())
@@ -121,12 +136,55 @@ class QuerySvc(object):
             raise IOError(body['errors'])
         return body['data']
 
+    def _page_q(self, cursor):
+        maybeParens = lambda s: '(' + s + ')' if s else ''
+        fmtParams = lambda params: ', '.join(
+            part
+            for k, (val, ty) in params.items()
+            for part in ([('$' + k + ':' + ty)] if val else []))
+        paramInfo = dict(cursor=[cursor, 'String!'])
+        variables = {k: v for (k, [v, _t]) in paramInfo.items()}
+        return variables, (
+            self.query
+            .replace('PARAMETERS', maybeParens(fmtParams(paramInfo)))
+            .replace('CURSOR', ' after: $cursor' if cursor else ''))
+
+    def fetch_pages(self):
+        pageInfo = {'endCursor': None}
+        pages = []
+        while 1:
+            variables, query = self._page_q(pageInfo['endCursor'])
+            info = self.runQ(query, variables)
+            pageInfo = info.get('repository', {}).get(self.connection, {}).get('pageInfo', {})
+            log.info('pageInfo: %s', pageInfo)
+            pages.append(info)
+            if not pageInfo.get('hasNextPage', False):
+                return pages
+
     def fetch(self, dest=None):
         info = self.runQ(self.query)
         if dest:
             with dest.open('w') as data_fp:
                 json.dump(info, data_fp)
         return info
+
+    @classmethod
+    def db_sync(cls, db, data, table):
+        cols = ', '.join(data.columns.values)
+        params = ', '.join(
+            ('%%(%s)s' % name) for name in data.columns)
+        assignments = ', '.join(
+            ('%s = values(%s)' % (name, name) for name in data.columns))
+        sql = '''
+        insert into %(table)s (%(cols)s)
+        values (%(params)s)
+        on duplicate key update
+        %(assignments)s
+        ''' % dict(cols=cols, params=params, assignments=assignments)
+        log.info('db_sync SQL: %s', sql)
+        records = data.to_dict(orient='records')
+        with db.begin() as trx:
+            trx.execute(sql, records)
 
 
 class Reactions(QuerySvc):
@@ -154,33 +212,7 @@ class Reactions(QuerySvc):
 
 class Issues(QuerySvc):
     query = pkg.resource_string(__name__, 'issues.graphql').decode('utf-8')
-
-    def _page_q(self, cursor, issueState=None):
-        maybeParens = lambda s: '(' + s + ')' if s else ''
-        fmtParams = lambda params: ', '.join(
-            part
-            for k, (val, ty) in params.items()
-            for part in ([('$' + k + ':' + ty)] if val else []))
-        paramInfo = {'cursor': [cursor, 'String!'],
-                     'issueState': [issueState, '[IssueState!]']}
-        variables = {k: v for (k, [v, _t]) in paramInfo.items()}
-        return variables, (
-            self.query
-            .replace('PARAMETERS', maybeParens(fmtParams(paramInfo)))
-            .replace('CURSOR', ' after: $cursor' if cursor else '')
-            .replace('STATES', ' states: $issueState' if issueState else ''))
-
-    def fetch_pages(self):
-        pageInfo = {'endCursor': None}
-        pages = []
-        while 1:
-            variables, query = self._page_q(pageInfo['endCursor'])
-            info = self.runQ(query, variables)
-            pageInfo = info.get('repository', {}).get('issues', {}).get('pageInfo', {})
-            log.info('issues pageInfo: %s', pageInfo)
-            pages.append(info)
-            if not pageInfo.get('hasNextPage', False):
-                return pages
+    connection = 'issues'
 
     @classmethod
     def data(self, pages,
@@ -198,16 +230,24 @@ class Issues(QuerySvc):
         df['updatedAt'] = df.updatedAt.str.replace('T', ' ').str.replace('Z', '')
         return df
 
+
+class Collaborators(QuerySvc):
+    query = pkg.resource_string(__name__, 'collaborators.graphql').decode('utf-8')
+    connection = 'collaborators'
+
     @classmethod
-    def db_sync(cls, db, data):
-        with db.begin() as trx:
-            trx.execute('''
-            insert into issue (num, title, updatedAt, state, repo)
-            values (%(num)s, %(title)s, %(updatedAt)s, %(state)s, %(repo)s)
-            on duplicate key update
-            num = values(num), title=values(title), updatedAt=values(updatedAt),
-            state=values(state), repo=values(repo)
-            ''', data.to_dict(orient='records'))
+    def data(self, pages):
+        df = pd.DataFrame(
+            [dict(edge['node'],
+                  permission=edge['permission'],
+                  followers=edge['node']['followers']['totalCount'])
+             for page in pages
+             for edge in page['repository']['collaborators']['edges']],
+            columns=['login', 'followers', 'name', 'location', 'email',
+                     'bio', 'websiteUrl', 'avatarUrl', 'permission', 'createdAt'])
+        # df = df.set_index('login')
+        df.createdAt = pd.to_datetime(df.createdAt)
+        return df
 
 
 class TrustCert(object):

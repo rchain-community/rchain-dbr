@@ -1,0 +1,27 @@
+query PARAMETERS {
+  repository(owner:"rchain", name:"bounties") {
+    collaborators(first:100 CURSOR) {
+      totalCount
+      pageInfo {
+        endCursor,
+        hasNextPage
+      }
+      edges {
+        permission
+        node {
+          login
+          createdAt
+          avatarUrl
+          bio
+          name
+          email
+          location
+          websiteUrl
+          followers {
+            totalCount
+          }
+        }
+      }
+    }
+  }
+}
