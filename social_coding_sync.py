@@ -10,10 +10,9 @@ Usage:
   social_coding_sync [options] trusted
 
 Options:
-  --repo-rd=FILE    JSON file with repository read-access token
-                    [default: creds/ram-dbr-access-token.json]
-  --db-access=FILE  JSON file with DB access credentials
-                    [default: creds/ram-dbr-db-access.json]
+  --config=FILE     config file with github_repo.read_token
+                    and _databse.db_url
+                    [default: conf.ini]
   --cache=DIR       directory for query results [default: cache]
   --voter=NAME      test voter for logging [default: dckc]
 
@@ -21,6 +20,7 @@ Options:
 
 """
 
+from configparser import SafeConfigParser
 from urllib.request import Request
 import json
 import logging
@@ -40,16 +40,20 @@ def main(argv, cwd, build_opener, create_engine):
     opt = docopt(__doc__.split('\n..', 1)[0], argv=argv[1:])
     log.debug('opt: %s', opt)
 
+    def config():
+        log.info('config: %s', opt['--config'])
+        with (cwd / opt['--config']).open('r') as txt_in:
+            cp = SafeConfigParser()
+            cp.read(txt_in, opt['--config'])
+        return cp
+
     def db():
-        log.info('DB access: %s', opt['--db-access'])
-        with (cwd / opt['--db-access']).open('r') as txt_in:
-            url = json.load(txt_in)["url"]
+        cp = config()
+        url = cp.get('_database', 'db_url')
         return create_engine(url)
 
     def tok():
-        log.info('GitHub repo read token file: %s', opt['--repo-rd'])
-        with (cwd / opt['--repo-rd']).open() as cred_fp:
-            return json.load(cred_fp)['token']
+        return config().get('github_repo', 'read_token')
 
     def cache_open(filename, mode, what):
         path = cwd / opt['--cache'] / filename
