@@ -1,8 +1,17 @@
 <?php
-// error reporting for debugging
-// ini_set('display_errors', 1);
-// error_reporting(1);
-// ini_set('error_reporting', E_ALL);
+// Reports all errors
+error_reporting(E_ALL);
+// Do not display errors for the end-users (security issue)
+ini_set('display_errors','Off');
+// Set a logging file
+ini_set('error_log','/tmp/php_errors.log');
+
+// Override the default error handler behavior
+set_exception_handler(function($exception) {
+   error_log($exception);
+   print("Oops. You hit a bug. Ask the admin to check the logs.");
+   exit();
+});
 $ini_array = parse_ini_file("conf.ini");
 
 // Include the Xataface API
