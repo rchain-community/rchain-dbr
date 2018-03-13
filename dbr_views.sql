@@ -13,7 +13,7 @@ from (
 	from issue i
 	    join budget_vote bv on bv.issue_num = i.num
             join admin_settings s on s.current_pay_period = bv.pay_period
-	group by i.num, i.title
+	group by bv.pay_period, i.num, i.title
 ) ea
 ;
 -- select * from issue_budget;
