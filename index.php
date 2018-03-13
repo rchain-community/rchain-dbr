@@ -1,6 +1,6 @@
 <?php
 // Reports all errors
-error_reporting(E_ALL);
+// error_reporting(E_ALL);
 // Do not display errors for the end-users (security issue)
 ini_set('display_errors','Off');
 // Set a logging file
@@ -9,7 +9,7 @@ ini_set('error_log','/tmp/php_errors.log');
 // Override the default error handler behavior
 set_exception_handler(function($exception) {
    error_log($exception);
-   print("Oops. You hit a bug. Ask the admin to check the logs.");
+   print("Oops. Technical difficulties. This might be harmless, or you may have hit a bug. If your vote / edit didn't get recorded, report the problem in <a href='https://github.com/rchain/bounties/issues/477'>#477</a> and we'll check the logs.");
    exit();
 });
 
