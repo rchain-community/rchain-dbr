@@ -37,15 +37,25 @@ create table admin_settings (
 
 
 CREATE TABLE `github_users` (
-  `login` varchar(22) NOT NULL,
+  `login` varchar(64) NOT NULL,
   `followers` bigint(20) DEFAULT NULL,
-  `name` varchar(31) DEFAULT NULL,
-  `location` varchar(39) DEFAULT NULL,
-  `email` varchar(30) DEFAULT NULL,
-  `bio` varchar(161) DEFAULT NULL,
-  `websiteUrl` varchar(42) DEFAULT NULL,
-  `avatarUrl` varchar(57) DEFAULT NULL,
-  `permission` varchar(9) DEFAULT NULL,
+  `name` varchar(128)
+        CHARACTER SET utf8 COLLATE utf8_general_ci
+	DEFAULT NULL,
+  `location` varchar(128)
+        CHARACTER SET utf8 COLLATE utf8_general_ci
+	DEFAULT NULL,
+  `email` varchar(128)
+        CHARACTER SET utf8 COLLATE utf8_general_ci
+	DEFAULT NULL,
+  `bio` varchar(512)
+        CHARACTER SET utf8 COLLATE utf8_general_ci
+	DEFAULT NULL,
+  `websiteUrl` varchar(512)
+         CHARACTER SET utf8 COLLATE utf8_general_ci
+	 DEFAULT NULL,
+  `avatarUrl` varchar(92) DEFAULT NULL,
+  `permission` varchar(16) DEFAULT NULL,
   `createdAt` datetime DEFAULT NULL,
   `session_token` varchar(64) DEFAULT NULL,
   `verified_coop` bigint(20) unsigned DEFAULT NULL,
