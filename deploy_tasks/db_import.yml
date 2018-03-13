@@ -9,11 +9,21 @@
 - name: ensure python mysql support is available
   apt:
     name: python-mysqldb
-- name: "Ensure {{ db_name }} DB exists"
+- name: "Create tables in {{ db_name }}"
   mysql_db:
     name: "{{ db_name }}"
     state: import
     target: "{{ install_dir }}/dbr_tables.sql"
+- name: "Create views in {{ db_name }}"
+  mysql_db:
+    name: "{{ db_name }}"
+    state: import
+    target: "{{ install_dir }}/dbr_views.sql"
+- name: "Create triggers in {{ db_name }}"
+  mysql_db:
+    name: "{{ db_name }}"
+    state: import
+    target: "{{ install_dir }}/dbr_triggers.sql"
 - name: "Ensure {{ db_name }} user exists"
   mysql_user:
     name: "{{ db_user }}"

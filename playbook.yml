@@ -3,21 +3,22 @@
   gather_facts: false
   vars:
     # htdocs: /home/public
-    url_path: rchain-dbr-beta
+    url_path: ""
     install_dir: "{{ htdocs }}/{{ url_path }}"
     xf_dir: "{{ install_dir }}/xataface-2.1.3"
   tasks:
-    - import_tasks: deploy_tasks/db_import.yml
-    - import_tasks: deploy_tasks/dbr_dev.yml
-    #- import_tasks: deploy_tasks/dbr_scm.yml
+    #- import_tasks: deploy_tasks/dbr_dev.yml
+    - import_tasks: deploy_tasks/dbr_scm.yml
     - name: fill in conf.ini template
       template:
         src: "conf.ini.example"
         dest: "{{ install_dir }}/conf.ini"
+    - import_tasks: deploy_tasks/db_import.yml
+    - import_tasks: deploy_tasks/xf_install.yml
     - name: install XDB module
       synchronize:
         src: "{{ install_dir }}/xataface_template/modules/"
         dest: "{{ xf_dir }}/modules/"
       delegate_to: "{{ inventory_hostname }}"
+    - import_tasks: deploy_tasks/php_deps.yml
     - import_tasks: deploy_tasks/py_deps.yml
-
