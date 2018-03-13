@@ -44,61 +44,62 @@ from (
 ;
 
 
-create or replace view invoice_formatted as
-
-select * from (
-        with detail as (
+create or replace view invoice_detail as
         select doc.*
             , issue_num, title, reward_usd
         from invoice_info doc
             join reward item on doc.pay_period = item.pay_period and doc.worker = item.worker
         where item.reward_usd is not null
-            )
-        , summary as (
+;
+create or replace view invoice_summary as
         select distinct pay_period, worker, name, rhoc_wallet
-        from detail
-            )
+        from invoice_detail
+        ;
+
+create or replace view invoice_formatted as
+
+select * from (
     select pay_period, worker, -10 line, null num
         , concat('Invoice # ', date_format(pay_period, '%Y-%m'), '-', worker) description
         , null amount
-    from summary
+    from invoice_summary
 
     union all
     select pay_period, worker, -9 line, null num
         , 'To: Rchain Cooperative / 12345 Lake City Way NE #2032 / Seattle, WA 98125 / USA' description
         , null amount
-    from summary
+    from invoice_summary
 
     union all
     select pay_period, worker, -8 line, null num
         , concat('From: ', name)
         , null amount
-    from summary
+    from invoice_summary
 
     union all
     select pay_period, worker, -7 line, null num
         , concat('ETH ', coalesce(rhoc_wallet, '????')), null amount
-    from summary
+    from invoice_summary
 
     union all
     select pay_period, worker, issue_num, issue_num, title, reward_usd
-    from detail
+    from invoice_detail
 
     union all
     select pay_period, worker, 1000000, null, ' ** TOTAL (USD):', sum(reward_usd)
-    from detail group by pay_period, worker
+    from invoice_detail group by pay_period, worker
 
     union all
     select pay_period, worker, 1000002, null, ' ** USD / RHOC:'
         , (select usd_per_rhoc from pay_period
-           where start_date = summary.pay_period)
-    from summary
+           where start_date = invoice_summary.pay_period)
+    from invoice_summary
 
     union all
     select pay_period, worker, 1000003, null, ' ** TOTAL (RHOC):'
          , sum(reward_usd) / usd_per_rhoc
-    from detail
-    join pay_period on pay_period.start_date = detail.pay_period
+    from invoice_detail
+    join pay_period on pay_period.start_date = invoice_detail.pay_period
     group by pay_period, worker, usd_per_rhoc
         ) d
 order by d.pay_period, d.worker, d.line
