@@ -48,7 +48,8 @@ class conf_ApplicationDelegate {
          }
 
          // Certify trusted users
-         if ( $query['-relationship'] == 'CertifiedBy') {
+         if ( isset($query['-relationship']) &&
+              $query['-relationship'] == 'CertifiedBy') {
              $in_listing = $query['-action'] == 'related_records_list';
              $adding = $query['-action'] == 'new_related_record';
 
@@ -68,7 +69,8 @@ class conf_ApplicationDelegate {
          }
 
          // Vote on budgets and rewards
-         if ( in_array($query['-relationship'],
+         if ( isset($query['-relationship']) &&
+              in_array($query['-relationship'],
                        array('BudgetVotes', 'RewardVotes')) ) {
              $in_listing = $query['-action'] == 'related_records_list';
              $adding = $query['-action'] == 'new_related_record';
