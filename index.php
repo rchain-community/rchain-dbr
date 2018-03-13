@@ -12,6 +12,11 @@ set_exception_handler(function($exception) {
    print("Oops. You hit a bug. Ask the admin to check the logs.");
    exit();
 });
+
+
+$_SERVER['SERVER_PORT'] = 443; // KLUDGE!
+
+
 $ini_array = parse_ini_file("conf.ini");
 
 // Include the Xataface API
