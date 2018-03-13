@@ -2,19 +2,12 @@
     {fill_slot name="main_column"}
         <h1>Welcome to the RAM Distributed Budgeting and Reward System</h1>
 
-<p>
-  <strong>WARNING:</strong> Any data you enter may be deleted without
-  notice. See <a href="https://github.com/rchain/Members/issues/260">issue
-  #260 Usable Web app for RAM distributed budgeting and reward
-  system</a>
-</p>
-
 <p>Current pay period: <strong>{$current_pay_period}</strong></p>
 
 <ul>
-  <li><a href="{$ENV.DATAFACE_SITE_HREF}?-table=issue&-sort=num+desc">Recent Issues</a></li>
+  <li><a href="{$ENV.DATAFACE_SITE_HREF}?-table=issue&-action=list&-sort=num+desc">Recent Issues</a></li>
   <li><a href="{$ENV.DATAFACE_SITE_HREF}?-table=issue_budget">Recent Issue Budgets</a></li>
-  <li><a href="{$ENV.DATAFACE_SITE_HREF}?-table=reward">(@@TODO Your) Rewards</a></li>
+  <li><a href="{$ENV.DATAFACE_SITE_HREF}?-table=github_users&amp;-action=related_records_list&amp;-mode=list&amp;-recordid=github_users%3Flogin%3D{$login}&-relationship=Reward">Rewards for {$login}</a></li>
 </ul>
     {/fill_slot}
 {/use_macro}
