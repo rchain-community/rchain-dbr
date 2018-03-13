@@ -22,6 +22,9 @@ class conf_ApplicationDelegate {
          $role = $user->val('permission');
 
          // TODO: managers
+         if ( $role == 'ADMIN' ) {
+             $perms['clear views'] = 1;
+         }
 
          $app =& Dataface_Application::getInstance();
          $query =& $app->getQuery();
