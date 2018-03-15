@@ -151,7 +151,7 @@ class VoteAuth {
      }
 
     function voter__permissions(&$record) {
-        return view_only();
+        return Dataface_PermissionsTool::READ_ONLY();
     }
 }
 
@@ -164,14 +164,8 @@ class PayPeriodVote extends VoteAuth {
     }
 
     function pay_period__permissions(&$record) {
-        return view_only();
+        return Dataface_PermissionsTool::READ_ONLY();
     }
 }
 
-
-function view_only() {
-    $perms = Dataface_PermissionsTool::NO_ACCESS();
-    $perms['view']=1;
-    return $perms;
-}
 ?>
