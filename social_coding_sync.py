@@ -13,6 +13,10 @@ Options:
   --config=FILE     config file with github_repo.read_token
                     and _databse.db_url
                     [default: conf.ini]
+  --seed=NAMES      login names (comma separated) of trust seed
+                    [default: dckc,Jake-Gillberg]
+  --capacities=XS   network flow capacities (comma separated)
+                    [default: 21,13,8,5]
   --cache=DIR       directory for query results [default: cache]
   --voter=NAME      test voter for logging [default: dckc]
 
@@ -104,8 +108,10 @@ def main(argv, cwd, build_opener, create_engine):
 
     elif opt['trusted']:
         dbr = db()
+        seed = opt['--seed'].split(',')
+        capacities = [int(c) for c in opt['--capacities'].split(',')]
         trusted = pd.concat([
-            TrustCert.trust_flow(dbr, rating).reset_index()
+            TrustCert.trust_flow(dbr, seed, capacities, rating).reset_index()
             for rating in TrustCert.ratings])
         trusted = trusted.groupby('login').max()
         trusted = trusted.sort_index()
@@ -268,10 +274,6 @@ class TrustCert(object):
 
     ratings = [1, 2, 3]
 
-    # capacities = [800, 200, 50, 12, 4, 2, 1] # fom net_flow.py
-    capacities = [100, 50, 12, 4, 2, 1]  # fom net_flow.py
-    seed = ['lapin7', 'kitblake', u'jimscarver']
-
     @classmethod
     def seed_from_reactions(cls, reactions, dbr):
         certs = reactions.reset_index().rename(columns={
@@ -298,7 +300,7 @@ class TrustCert(object):
         return certs
 
     @classmethod
-    def trust_flow(cls, dbr, rating=1):
+    def trust_flow(cls, dbr, seed, capacities, rating=1):
         g = net_flow.NetFlow()
 
         last_cert = pd.read_sql('''
@@ -316,11 +318,11 @@ class TrustCert(object):
         for _, e in edges.iterrows():
             g.add_edge(e.voter, e.subject)
 
-        superseed = "superseed"
-        for s in cls.seed:
+        superseed = "<superseed>"
+        for s in seed:
             g.add_edge(superseed, s)
 
-        flow = g.max_flow_extract(superseed, cls.capacities)
+        flow = g.max_flow_extract(superseed, capacities)
         ok = pd.DataFrame([
             dict(login=login)
             for login, value in flow.items()
