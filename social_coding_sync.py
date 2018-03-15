@@ -8,6 +8,7 @@ Usage:
   social_coding_sync [options] reactions_get
   social_coding_sync [options] trust_seed
   social_coding_sync [options] trusted
+  social_coding_sync [options] trust_view
 
 Options:
   --config=FILE     config file with github_repo.read_token
@@ -17,6 +18,8 @@ Options:
                     [default: dckc,Jake-Gillberg]
   --capacities=XS   network flow capacities (comma separated)
                     [default: 21,13,8,5]
+  --view=FILE       filename for social network visualization
+                    [default: ,states.js]
   --cache=DIR       directory for query results [default: cache]
   --voter=NAME      test voter for logging [default: dckc]
 
@@ -118,6 +121,9 @@ def main(argv, cwd, build_opener, create_engine):
         trusted.to_sql('authorities', if_exists='replace', con=dbr,
                        dtype=noblob(trusted))
         log.info('trusted.head():\n%s', trusted.head())
+
+    elif opt['trust_view']:
+        TrustCert.viz(db(), cwd / opt['--view'])
 
 
 def headless_config(fp, fname):
@@ -332,6 +338,31 @@ class TrustCert(object):
         ok['rating'] = rating
         return ok.merge(last_cert,
                         left_index=True, right_index=True, how='left')
+
+    @classmethod
+    def viz(cls, dbr, dest):
+        peers_df = pd.read_sql('select distinct login from github_users', dbr)
+        peers = list(peers_df.login.values)
+        cert_df = pd.read_sql('select login, rating from authorities', dbr)
+        certs = {
+            a.login: a.rating
+            for _, a in cert_df.iterrows()
+        }
+        edges_df = pd.read_sql('select voter, subject, rating from trust_cert', dbr)
+        edges = {
+                voter: [
+                    e2.subject
+                    for _, e2 in edges_df[edges_df.voter == voter].iterrows()
+                ]
+            for voter in edges_df.voter.unique()
+        }
+        states = [{
+            "peers": peers,
+            "certs": certs,
+            "edges": edges
+        }]
+        with dest.open('w') as fp:
+            json.dump(states, fp)
 
 
 def noblob(df,
