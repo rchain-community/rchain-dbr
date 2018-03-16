@@ -1,0 +1,13 @@
+[Unit]
+Description=dbr_aux under uWSGI
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/html
+#Environment="PATH=/home/sammy/myproject/myprojectenv/bin"
+ExecStart=/usr/bin/uwsgi --ini dbr_aux.ini
+
+[Install]
+WantedBy=multi-user.target

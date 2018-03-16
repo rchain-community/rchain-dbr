@@ -1,0 +1,40 @@
+# server without ssl/https with fastcgi and WP runnning
+# /etc/nginx/sites-available/example-behind-proxy.com
+server {
+  listen 8080 default_server;
+  listen [::]:8080 default_server;
+  root /var/www/html;
+  index index.php index.html index.htm index.nginx-debian.html;
+  server_name _;
+
+  port_in_redirect off;
+
+  location / {
+    # try_files $uri $uri/ /index.php?$args;
+try_files $uri $uri/ /index.php?q=$uri&$args;
+  }
+
+  location ~ \.(ini|conf|log)$ {
+    deny all;
+  }
+
+  location ~ \.php$ {
+    #include snippets/fastcgi-php.conf;
+    include snippets/fastcgi-php.conf;
+    set $my_https $https;
+    if ($http_x_forwarded_proto = 'https') {
+      set $my_https 'on';
+    }
+
+    fastcgi_param HTTPS $my_https; # set $_SERVER['HTTPS']
+    fastcgi_param SERVER_NAME $host; # set $_SERVER['SERVER_NAME']
+    fastcgi_param HTTP_HOST $host; # set $_SERVER['HTTP_HOST']
+    #fastcgi_pass unix:/run/php/php7.0-fpm.sock;
+    fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+  }
+
+  location /aux {
+    include uwsgi_params;
+    uwsgi_pass unix:/tmp/dbr_aux.sock;
+  }
+}
