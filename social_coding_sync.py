@@ -40,63 +40,37 @@ import sqlalchemy as sqla
 import net_flow
 
 log = logging.getLogger(__name__)
+USAGE = __doc__.split('\n..', 1)[0]
 
 
 def main(argv, cwd, build_opener, create_engine):
     log.debug('argv: %s', argv)
-    opt = docopt(__doc__.split('\n..', 1)[0], argv=argv[1:])
+    opt = docopt(USAGE, argv=argv[1:])
     log.debug('opt: %s', opt)
 
-    def config():
-        log.info('config: %s', opt['--config'])
-        with (cwd / opt['--config']).open('r') as txt_in:
-            cp = headless_config(txt_in, opt['--config'])
-        return cp
-
-    def db():
-        cp = config()
-        url = cp.get('_database', 'db_url')
-        return create_engine(url)
-
-    def tok():
-        return config().get('github_repo', 'read_token')
-
-    def cache_open(filename, mode, what, encoding=None):
+    def cache_open(filename, mode, what):
         path = cwd / opt['--cache'] / filename
         log.info('%s %s to %s',
                  'Writing' if mode == 'w' else 'Reading',
                  what, path)
-        return path.open(mode=mode, encoding=encoding)
+        return path.open(mode=mode)
 
+    io = IO(create_engine, build_opener, cwd / opt['--config'])
 
     if opt['issues_fetch']:
-        issues = Issues(build_opener(), tok())
-        issueInfo = issues.fetch_pages()
-        with cache_open('issues.json', mode='w',
-                        what='%d pages of issues' % len(issueInfo)) as fp:
-            json.dump(issueInfo, fp)
+        Issues(io.opener(), io.tok()).fetch_to_cache(cache_open)
 
     elif opt['issues_insert']:
-        with cache_open('issues.json', mode='r', encoding='utf-8',
-                        what='issueInfo') as fp:
-            issuePages = json.load(fp)
-        Issues.db_sync(db(), Issues.data(issuePages), 'issue')
+        Issues.sync_from_cache(cache_open, io.db())
 
     elif opt['users_fetch']:
-        user_q = Collaborators(build_opener(), tok())
-        userInfo = user_q.fetch_pages()
-        with cache_open('users.json', mode='w',
-                        what='%d pages of users' % len(userInfo)) as fp:
-            json.dump(userInfo, fp)
+        Collaborators(io.opener(), io.tok()).fetch_to_cache(cache_open)
 
     elif opt['users_insert']:
-        with cache_open('users.json', mode='r', encoding='utf-8',
-                        what='userInfo') as fp:
-            userPages = json.load(fp)
-        Collaborators.db_sync(db(), Collaborators.data(userPages), 'github_users')
+        Collaborators.sync_from_cache(cache_open, io.db())
 
     elif opt['reactions_get']:
-        rs = Reactions(build_opener(), tok())
+        rs = Reactions(io.opener(), io.tok())
         info = rs.fetch(dest=cwd / opt['--cache'] / 'reactions.json')
         log.info('%d reactions saved to %s',
                  len(info['repository']['issues']['nodes']), opt['--cache'])
@@ -105,25 +79,98 @@ def main(argv, cwd, build_opener, create_engine):
         log.info('using cache %s to get saved reactions', opt['--cache'])
         with cache_open('reactions.json', mode='r', what='reactions') as fp:
             reaction_info = json.load(fp)
-        dbr = db()
         reactions = Reactions.normalize(reaction_info)
-        TrustCert.seed_from_reactions(reactions, dbr).reset_index()
+        TrustCert.seed_from_reactions(reactions, io.db()).reset_index()
 
     elif opt['trusted']:
-        dbr = db()
-        seed = opt['--seed'].split(',')
-        capacities = [int(c) for c in opt['--capacities'].split(',')]
-        trusted = pd.concat([
-            TrustCert.trust_flow(dbr, seed, capacities, rating).reset_index()
-            for rating in TrustCert.ratings])
-        trusted = trusted.groupby('login').max()
-        trusted = trusted.sort_index()
-        trusted.to_sql('authorities', if_exists='replace', con=dbr,
-                       dtype=noblob(trusted))
-        log.info('trusted.head():\n%s', trusted.head())
+        seed, capacities = TrustCert.doc_params(opt)
+        trusted = TrustCert.update_results(io.db(), seed, capacities)
+        by_rating = trusted.groupby('rating')[['login']].count()
+        log.info('trust count by rating:\n%s', by_rating)
 
     elif opt['trust_view']:
-        TrustCert.viz(db(), cwd / opt['--view'])
+        states = TrustCert.viz(io.db())
+        with (cwd / opt['--view']).open('w') as fp:
+            json.dump(states, fp)
+
+
+PLAIN = [('Content-Type', 'text/plain')]
+
+
+class WSGI_App(object):
+    template = '''
+        <form action='' method='post'>
+        <input type='submit' name='Update {table}' />
+        </form>
+        '''
+
+    def __init__(self, create_engine, build_opener, config_path):
+        self.__io = IO(create_engine, build_opener, config_path)
+
+    def __call__(self, environ, start_response):
+        [path, method] = [environ.get(n)
+                          for n in ['PATH_INFO', 'REQUEST_METHOD']]
+        if method == 'GET':
+            if path in ('user', 'issue', 'trust_cert'):
+                return self.form(path, start_response)
+        elif method == 'POST':
+            if path == 'user':
+                return self.sync(Collaborators, start_response)
+            elif path == 'issue':
+                return self.issues_sync(Issues, start_response)
+            elif path == 'trust_cert':
+                return self.cert_recalc(start_response)
+        start_response('404 not found', PLAIN)
+        return []
+
+    def form(self, path, start_response):
+        start_response('200 OK', PLAIN)
+        return [self.template.format(table=path).encode('utf-8')]
+
+    def sync(self, cls, start_response):
+        io = self.__io
+        data = cls(io.opener(), io.tok()).sync_data(io.db())
+        start_response('200 ok', PLAIN)
+        return [('%d records' % len(data)).encode('utf-8')]
+
+    def cert_recalc(self, start_response):
+        seed, capacities = TrustCert.doc_params()
+        io = self.__io
+        dbr = io.db()
+        TrustCert.update_results(dbr, seed, capacities)
+        states = TrustCert.viz(dbr)
+        start_response('200 OK', PLAIN)
+        return [json.dumps(states, indent=2).encode('utf-8')]
+
+
+class IO(object):
+    def __init__(self, create_engine, build_opener, config_path):
+        self.__config_path = config_path
+        self.__create_engine = create_engine
+        self.__build_opener = build_opener
+        self.__config = None
+
+    @property
+    def _cp(self):
+        if self.__config:
+            return self.__config
+
+        path = self.__config_path
+        log.info('config: %s', path)
+        with path.open('r') as txt_in:
+            cp = headless_config(txt_in, str(path))
+        self.__config = cp
+        return cp
+
+    def db(self):
+        url = self._cp.get('_database', 'db_url')
+        return self.__create_engine(url)
+
+    def tok(self):
+        return self._cp.get('github_repo', 'read_token')
+
+    def opener(self):
+        return self.__build_opener()
 
 
 def headless_config(fp, fname):
@@ -209,6 +256,26 @@ class QuerySvc(object):
         with db.begin() as trx:
             trx.execute(sql, records)
 
+    def fetch_to_cache(self, cache_open):
+        info = self.fetch_pages()
+        with cache_open(
+                self.cache_filename, mode='w',
+                what='%d pages of %s' % (len(info), self.connection)) as fp:
+            json.dump(info, fp)
+
+    @classmethod
+    def sync_from_cache(cls, cache_open, dbr):
+        with cache_open(cls.cache_filename, mode='r',
+                        what=cls.connection + ' pages') as fp:
+            pages = json.load(fp)
+        cls.db_sync(dbr, cls.data(pages), cls.table)
+
+    def sync_data(self, dbr):
+        pages = self.fetch_pages()
+        data = self.data(pages)
+        self.db_sync(dbr, self.data(pages), self.table)
+        return data
+
 
 class Reactions(QuerySvc):
     query = pkg.resource_string(__name__, 'reactions.graphql').decode('utf-8')
@@ -236,6 +303,8 @@ class Reactions(QuerySvc):
 class Issues(QuerySvc):
     query = pkg.resource_string(__name__, 'issues.graphql').decode('utf-8')
     connection = 'issues'
+    table = 'issue'
+    cache_filename = 'issues.json'
 
     @classmethod
     def data(self, pages,
@@ -257,6 +326,8 @@ class Issues(QuerySvc):
 class Collaborators(QuerySvc):
     query = pkg.resource_string(__name__, 'collaborators.graphql').decode('utf-8')
     connection = 'collaborators'
+    table = 'github_users'
+    cache_filename = 'users.json'
 
     @classmethod
     def data(self, pages):
@@ -279,6 +350,17 @@ class TrustCert(object):
     table = 'trust_cert'
 
     ratings = [1, 2, 3]
+
+    @classmethod
+    def update_results(cls, dbr, seed, capacities):
+        trusted = pd.concat([
+            cls.trust_flow(dbr, seed, capacities, rating).reset_index()
+            for rating in TrustCert.ratings])
+        trusted = trusted.groupby('login').max()
+        trusted = trusted.sort_index()
+        trusted.to_sql('authorities', if_exists='replace', con=dbr,
+                       dtype=noblob(trusted))
+        return trusted
 
     @classmethod
     def seed_from_reactions(cls, reactions, dbr):
@@ -304,6 +386,14 @@ class TrustCert(object):
         log.info('%d rows inserted into %s:\n%s',
                  len(certs), cls.table, certs.head())
         return certs
+
+    @classmethod
+    def doc_params(cls, opt=None):
+        if opt is None:
+            opt = docopt(USAGE, argv=[])
+        seed = opt['--seed'].split(',')
+        capacities = [int(c) for c in opt['--capacities'].split(',')]
+        return seed, capacities
 
     @classmethod
     def trust_flow(cls, dbr, seed, capacities, rating=1):
@@ -340,7 +430,7 @@ class TrustCert(object):
                         left_index=True, right_index=True, how='left')
 
     @classmethod
-    def viz(cls, dbr, dest):
+    def viz(cls, dbr):
         peers_df = pd.read_sql('select distinct login from github_users', dbr)
         peers = list(peers_df.login.values)
         cert_df = pd.read_sql('select login, rating from authorities', dbr)
@@ -356,13 +446,11 @@ class TrustCert(object):
                 ]
             for voter in edges_df.voter.unique()
         }
-        states = [{
+        return [{
             "peers": peers,
             "certs": certs,
             "edges": edges
         }]
-        with dest.open('w') as fp:
-            json.dump(states, fp)
 
 
 def noblob(df,
