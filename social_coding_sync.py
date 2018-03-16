@@ -25,9 +25,21 @@ Options:
 
 .. note: This line separates usage notes above from design notes below.
 
+    >>> io = MockIO()
+    >>> run = lambda cmd: main(cmd.split(),
+    ...                        io.cwd, io.build_opener, io.create_engine)
+    >>> from pprint import pprint
+
+    >>> run('script.py issues_fetch')
+    >>> pprint(json.loads(io.fs['./cache/issues.json']))
+    [{'repository': {'issues': {'nodes': [{'number': 123,
+                                           'state': 'OPEN',
+                                           'title': 'Bad breath',
+                                           'updatedAt': '2001-01-01'}]}}}]
 """
 
 from configparser import SafeConfigParser
+from io import BytesIO, StringIO
 from urllib.request import Request
 import json
 import logging
@@ -464,6 +476,91 @@ def noblob(df,
     return {col: sqla.types.String(length=pad + df[col].str.len().max())
             for col, t in zip(df.columns.values, df.dtypes)
             if t.kind == 'O'}
+
+
+class MockIO(object):
+    config = '\n'.join([
+        line.strip() for line in
+        '''
+        [_database]
+        db_url: sqlite:///
+
+        [github_repo]
+        read_token: SEKRET
+        '''.split('\n')
+    ])
+
+    fs = {
+        './conf.ini': config
+    }
+
+    def __init__(self, path='.', web_ua=False):
+        self.path = path
+        self.web_ua = web_ua
+
+    @property
+    def cwd(self):
+        return MockIO('.')
+
+    def __truediv__(self, other):
+        from posixpath import join
+        return MockIO(join(self.path, other))
+
+    def open(self, mode='r'):
+        if mode == 'r':
+            return StringIO(self.fs[self.path])
+        elif mode == 'w':
+            def done(value):
+                self.fs[self.path] = value
+            return MockFP(done)
+        else:
+            raise IOError(mode)
+
+    def build_opener(self):
+        return MockWeb()
+
+    def create_engine(self, db_url):
+        from sqlalchemy import create_engine
+        return create_engine('sqlite:///')
+
+
+class MockFP(StringIO):
+    def __init__(self, done):
+        StringIO.__init__(self)
+        self.done = done
+
+    def close(self):
+        self.done(self.getvalue())
+
+
+class MockWeb(object):
+    def open(self, req):
+        if (req.full_url == 'https://api.github.com/graphql' and
+            req.get_method() == 'POST'):
+            # req.data
+            ans = {
+                'data': {
+                    'repository': {
+                        'issues': {
+                            'nodes': [
+                                {
+                                    'title': 'Bad breath',
+                                    'number': 123,
+                                    'updatedAt': '2001-01-01',
+                                    'state': 'OPEN'
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+            return MockResponse(json.dumps(ans).encode('utf-8'))
+        raise NotImplementedError(req.full_url)
+
+
+class MockResponse(BytesIO):
+    def getcode(self):
+        return 200
 
 
 if __name__ == '__main__':
