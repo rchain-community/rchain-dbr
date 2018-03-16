@@ -1,0 +1,34 @@
+---
+  - name: Install nginx, uwsgi
+    apt: name={{item}} state=installed
+    with_items:
+      - nginx
+      - uwsgi
+      - uwsgi-plugin-python
+      - uwsgi-plugin-python3
+
+  - name: install dbr_aux uwsgi service config file
+    copy: src=dbr_aux.service
+          dest=/etc/systemd/system/dbr_aux.service
+  - name: start dbr_aux uwsgi service
+    systemd: name=dbr_aux state=started
+
+  - name: Set up nginx config directory
+    file: path=/etc/nginx/{{ item }}
+          state=directory
+    with_items:
+      - sites-available
+      - sites-enabled
+
+  - name: Deactivate the default nginx site
+    file: path=/etc/nginx/sites-enabled/default
+          state=absent
+
+  - name: Install the rchain-dbr site config
+    copy: src=rchain-dbr
+          dest=/etc/nginx/sites-available/rchain-dbr
+
+  - name: Activate the rchain-dbr site
+    file: src=/etc/nginx/sites-available/rchain-dbr
+          dest=/etc/nginx/sites-enabled/rchain-dbr
+          state=link

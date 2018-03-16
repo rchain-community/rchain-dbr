@@ -1,7 +1,6 @@
 ---
-  - name: ensure python pip is available
-    apt:
-      name: python3-pip
+  - name: ensure python pip3 is installed
+    apt: name=python3-pip state=installed
   - name: ensure sqlalchemy etc. are available
     pip:
       chdir: "{{ install_dir }}"

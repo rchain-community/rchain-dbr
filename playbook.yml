@@ -22,3 +22,4 @@
       delegate_to: "{{ inventory_hostname }}"
     - import_tasks: deploy_tasks/php_deps.yml
     - import_tasks: deploy_tasks/py_deps.yml
+    - import_tasks: deploy_tasks/nginx_site.yml
