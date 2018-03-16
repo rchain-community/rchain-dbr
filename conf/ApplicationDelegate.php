@@ -40,6 +40,7 @@ class conf_ApplicationDelegate {
                    $action == 'edit') ) {
                  $perms['edit'] = 1;
                  $perms['delete'] = 1;
+                 $perms['delete related record'] = 1;
              }
 
              else if ($query['-table'] == 'github_users' and
