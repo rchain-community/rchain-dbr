@@ -13,7 +13,7 @@
       template:
         src: "conf.ini.example"
         dest: "{{ install_dir }}/conf.ini"
-    - import_tasks: deploy_tasks/db_import.yml
+    #- import_tasks: deploy_tasks/db_import.yml
     - import_tasks: deploy_tasks/xf_install.yml
     - name: install XDB module
       synchronize:
