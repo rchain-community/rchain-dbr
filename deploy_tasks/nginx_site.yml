@@ -24,11 +24,11 @@
     file: path=/etc/nginx/sites-enabled/default
           state=absent
 
-  - name: Install the rchain-dbr site config
-    copy: src=rchain-dbr
-          dest=/etc/nginx/sites-available/rchain-dbr
+  - name: Install the rchain-rewards site config
+    copy: src=sites-available/rchain-rewards
+          dest=/etc/nginx/sites-available/rchain-rewards
 
-  - name: Activate the rchain-dbr site
-    file: src=/etc/nginx/sites-available/rchain-dbr
-          dest=/etc/nginx/sites-enabled/rchain-dbr
+  - name: Activate the rchain-rewards site
+    file: src=/etc/nginx/sites-available/rchain-rewards
+          dest=/etc/nginx/sites-enabled/rchain-rewards
           state=link

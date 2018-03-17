@@ -25,7 +25,6 @@
     - import_tasks: deploy_tasks/nginx_site.yml
       notify:
         - restart dbr_aux
-    - import_tasks: deploy_tasks/dbr_dev.yml
   handlers:
     - name: restart dbr_aux
       service: name=dbr_aux state=restarted
