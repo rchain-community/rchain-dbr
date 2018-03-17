@@ -54,6 +54,9 @@ import net_flow
 log = logging.getLogger(__name__)
 USAGE = __doc__.split('\n..', 1)[0]
 
+PLAIN = [('Content-Type', 'text/plain')]
+HTML8 = [('Content-Type', 'text/html; charset=utf-8')]
+
 
 def main(argv, cwd, build_opener, create_engine):
     log.debug('argv: %s', argv)
@@ -106,13 +109,11 @@ def main(argv, cwd, build_opener, create_engine):
             json.dump(states, fp)
 
 
-PLAIN = [('Content-Type', 'text/plain')]
-
-
 class WSGI_App(object):
     template = '''
+        <h1>Update {table}</h1>
         <form action='' method='post'>
-        <input type='submit' name='Update {table}' />
+        <input type='submit' value='Update {table}' />
         </form>
         '''
 
@@ -123,20 +124,20 @@ class WSGI_App(object):
         [path, method] = [environ.get(n)
                           for n in ['PATH_INFO', 'REQUEST_METHOD']]
         if method == 'GET':
-            if path in ('user', 'issue', 'trust_cert'):
+            if path in ('/user', '/issue', '/trust_cert'):
                 return self.form(path, start_response)
         elif method == 'POST':
-            if path == 'user':
+            if path == '/user':
                 return self.sync(Collaborators, start_response)
-            elif path == 'issue':
-                return self.issues_sync(Issues, start_response)
-            elif path == 'trust_cert':
+            elif path == '/issue':
+                return self.sync(Issues, start_response)
+            elif path == '/trust_cert':
                 return self.cert_recalc(start_response)
         start_response('404 not found', PLAIN)
-        return []
+        return [('cannot find %r' % path).encode('utf-8')]
 
     def form(self, path, start_response):
-        start_response('200 OK', PLAIN)
+        start_response('200 OK', HTML8)
         return [self.template.format(table=path).encode('utf-8')]
 
     def sync(self, cls, start_response):
@@ -176,6 +177,7 @@ class IO(object):
 
     def db(self):
         url = self._cp.get('_database', 'db_url')
+        url = url.strip('"')  # PHP needs ""s for %(interp)s
         return self.__create_engine(url)
 
     def tok(self):
@@ -291,8 +293,18 @@ class QuerySvc(object):
 
 
 class Obj(dict):
+    '''
+    >>> x = Obj(dict(a={'b': 3}))
+    >>> x.a.b
+    3
+    >>> x.a.oops
+    {}
+    '''
     def __getitem__(self, n):
-        return Obj(self.get(n, {}))
+        x = self.get(n, {})
+        if isinstance(x, dict):
+            return Obj(x)
+        return x
 
     def __getattr__(self, n):
         return self[n]
@@ -415,7 +427,7 @@ class TrustCert(object):
     @classmethod
     def doc_params(cls, opt=None):
         if opt is None:
-            opt = docopt(USAGE, argv=[])
+            opt = docopt(USAGE, argv=['trusted'])
         seed = opt['--seed'].split(',')
         capacities = [int(c) for c in opt['--capacities'].split(',')]
         return seed, capacities

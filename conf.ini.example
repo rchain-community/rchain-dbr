@@ -6,6 +6,7 @@ xataface_location=xataface-2.1.3/dataface-public-api.php
 
 [_database]
 host={{ db_host }}
+port=3306
 name={{ db_name }}
 user={{ db_user }}
 password={{ db_password }}
@@ -13,6 +14,9 @@ password={{ db_password }}
 ;; PHP Fatal error:  Uncaught Error: Call to undefined function mysql_connect()
 ;; http://xataface-tips.blogspot.ca/2014/06/using-mysqli-in-xataface.html
 driver=mysqli
+
+;; sqlalchemy
+db_url="mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(name)s?charset=utf8"
 
 [_tables]
 ;; This section lists the tables to include in your application menu
@@ -42,6 +46,9 @@ verified_coop_column = verified_coop
     
 [history]
 enabled = 1
+
+[github_repo]
+read_token = {{ github_repo_token }}
 
 [github_oauth]
 github_app_client_id = {{ gh_client_id }}

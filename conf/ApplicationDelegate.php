@@ -138,8 +138,13 @@ class conf_ApplicationDelegate {
 
     function block__before_left_column() {
         echo "<ul>\n";
+        echo "<li><a href='aux/user'>Update Users</a></li>\n";
+        echo "<li><a href='aux/issue'>Update Issues</a></li>\n";
+        echo "<li><a href='aux/trust_cert'>Update Trust Ratings</a></li>\n";
+        echo "<li><a href='https://github.com/rchain/bounties/'>RChain Bounties</a></li>\n";
+        echo "<li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>\n";
+        echo "<li><a href='https://discordapp.com/channels/375365542359465989/418562733727023114'>#bounties channel</a></li>\n";
         echo "<li><a href='https://www.rchain.coop/'>RChain Co-op</a></li>\n";
-        echo "<li><a href='https://github.com/rchain/Members/blob/master/CONTRIBUTING.md'>RAM Guide</a></li>\n";
         echo "</ul>\n";
     }
 }
