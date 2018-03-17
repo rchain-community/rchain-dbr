@@ -236,7 +236,7 @@ class QuerySvc(object):
         while 1:
             variables, query = self._page_q(pageInfo['endCursor'])
             info = self.runQ(query, variables)
-            pageInfo = info.get('repository', {}).get(self.connection, {}).get('pageInfo', {})
+            pageInfo = Obj(info).repository[self.connection].pageInfo
             log.info('pageInfo: %s', pageInfo)
             pages.append(info)
             if not pageInfo.get('hasNextPage', False):
@@ -262,7 +262,8 @@ class QuerySvc(object):
         values (%(params)s)
         on duplicate key update
         %(assignments)s
-        ''' % dict(cols=cols, params=params, assignments=assignments, table=table)
+        ''' % dict(cols=cols, params=params,
+                   assignments=assignments, table=table)
         log.info('db_sync SQL: %s', sql)
         records = data.to_dict(orient='records')
         with db.begin() as trx:
@@ -287,6 +288,14 @@ class QuerySvc(object):
         data = self.data(pages)
         self.db_sync(dbr, self.data(pages), self.table)
         return data
+
+
+class Obj(dict):
+    def __getitem__(self, n):
+        return Obj(self.get(n, {}))
+
+    def __getattr__(self, n):
+        return self[n]
 
 
 class Reactions(QuerySvc):
@@ -331,12 +340,15 @@ class Issues(QuerySvc):
             for node in page['repository']['issues']['nodes']
         ])
         # df['updatedAt'] = pd.to_datetime(df.updatedAt)
-        df['updatedAt'] = df.updatedAt.str.replace('T', ' ').str.replace('Z', '')
+        when = df.updatedAt
+        when = when.str.replace('T', ' ').str.replace('Z', '')
+        df['updatedAt'] = when
         return df
 
 
 class Collaborators(QuerySvc):
-    query = pkg.resource_string(__name__, 'collaborators.graphql').decode('utf-8')
+    query = pkg.resource_string(__name__,
+                                'collaborators.graphql').decode('utf-8')
     connection = 'collaborators'
     table = 'github_users'
     cache_filename = 'users.json'
@@ -350,7 +362,8 @@ class Collaborators(QuerySvc):
              for page in pages
              for edge in page['repository']['collaborators']['edges']],
             columns=['login', 'followers', 'name', 'location', 'email',
-                     'bio', 'websiteUrl', 'avatarUrl', 'permission', 'createdAt'])
+                     'bio', 'websiteUrl', 'avatarUrl', 'permission',
+                     'createdAt'])
         # df = df.set_index('login')
         # df.createdAt = pd.to_datetime(df.createdAt)
         df = df.fillna(value='')
@@ -450,12 +463,13 @@ class TrustCert(object):
             a.login: a.rating
             for _, a in cert_df.iterrows()
         }
-        edges_df = pd.read_sql('select voter, subject, rating from trust_cert', dbr)
+        edges_df = pd.read_sql(
+            'select voter, subject, rating from trust_cert', dbr)
         edges = {
-                voter: [
-                    e2.subject
-                    for _, e2 in edges_df[edges_df.voter == voter].iterrows()
-                ]
+            voter: [
+                e2.subject
+                for _, e2 in edges_df[edges_df.voter == voter].iterrows()
+            ]
             for voter in edges_df.voter.unique()
         }
         return [{
@@ -535,8 +549,8 @@ class MockFP(StringIO):
 
 class MockWeb(object):
     def open(self, req):
-        if (req.full_url == 'https://api.github.com/graphql' and
-            req.get_method() == 'POST'):
+        url, method = req.full_url, req.get_method()
+        if (method, url) == ('POST', 'https://api.github.com/graphql'):
             # req.data
             ans = {
                 'data': {
