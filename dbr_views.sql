@@ -1,3 +1,14 @@
+create or replace view user_flair as
+select u.login, u.verified_coop, r.rating
+     , elt(field(r.rating, 1, 2, 3), 'apprentice', 'journeyer',  'master') rating_label
+     , elt(field(r.rating, 1, 2, 3), 1, 3,  7) weight
+     , concat(u.login,
+              case when u.verified_coop is null then '?'
+	           else concat(':', right(u.verified_coop, 3)) end,
+              coalesce(elt(field(r.rating, 1, 2, 3), ' a*1', ' j*3',  ' m*7'), '')) sig
+from github_users u
+left join authorities r on u.login = r.login
+;
 
 
 create or replace view issue_budget as
@@ -6,12 +17,13 @@ select issue_num, title
     , budget_provisional, voter_qty, voters, pay_period
 from (
 	select bv.issue_num, i.title
-	     , count(distinct bv.voter) voter_qty
-	     , group_concat(bv.voter separator ', ') voters
+	     , count(distinct uf.verified_coop) voter_qty
+	     , group_concat(uf.sig separator ', ') voters
 	     , round(avg(bv.amount), 2) budget_provisional
              , bv.pay_period
 	from issue i
 	    join budget_vote bv on bv.issue_num = i.num
+	    join user_flair uf on uf.login = bv.voter and uf.verified_coop is not null
             join admin_settings s on s.current_pay_period = bv.pay_period
 	group by bv.pay_period, i.num, i.title
 ) ea
@@ -30,8 +42,8 @@ select issue_num, title
      , pay_period
 from (
 	select ib.pay_period, ib.issue_num, ib.title, rv.worker
-	     , count(distinct rv.voter) voter_qty
-	     , group_concat(rv.voter separator ', ') voters
+	     , count(distinct uf.verified_coop) voter_qty
+	     , group_concat(uf.sig separator ', ') voters
              , ib.budget_provisional
              , ib.budget_usd
 	     , round(avg(rv.percent), 2) percent_avg
@@ -39,6 +51,7 @@ from (
 	     , round(avg(rv.percent) / 100 * ib.budget_usd) reward_usd_1
 	from issue_budget ib
 	join reward_vote rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
+        join user_flair uf on uf.login = rv.voter and uf.verified_coop is not null
 	group by ib.pay_period, ib.issue_num, ib.title, rv.worker
 ) ea
 ;
