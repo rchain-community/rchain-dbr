@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <title>RChain Community Trust Network</title>
+
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css" rel="stylesheet" type="text/css" />
+
+    <style type="text/css">
+      #mynetwork {
+      width: 600px;
+      height: 400px;
+      border: 1px solid lightgray;
+      }
+    </style>
+  </head>
+  <body>
+
+    <h1>
+      RChain Community Trust Network
+    </h1>
+
+    <div id="mynetwork"></div>
+
+    <script type="text/javascript" src="net_viz.js"></script>
+    <script type="text/javascript">
+      const s_net = makeSocialNetwork(() => new XMLHttpRequest());
+      s_net.fetch().then(net => {
+
+      // create an array with nodes
+      var nodes = new vis.DataSet(net.nodes);
+
+      // create an array with edges
+      var edges = new vis.DataSet(net.edges);
+
+      // create a network
+      var container = document.getElementById('mynetwork');
+      var data = {
+      nodes: nodes,
+      edges: edges
+      };
+      var options = {};
+      var network = new vis.Network(container, data, options);
+      });
+    </script>
+
+
+  </body>
+</html>

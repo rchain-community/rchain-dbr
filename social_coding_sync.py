@@ -56,6 +56,7 @@ USAGE = __doc__.split('\n..', 1)[0]
 
 PLAIN = [('Content-Type', 'text/plain')]
 HTML8 = [('Content-Type', 'text/html; charset=utf-8')]
+JSON = [('Content-Type', 'application/json')]
 
 
 def main(argv, cwd, build_opener, create_engine):
@@ -106,14 +107,24 @@ def main(argv, cwd, build_opener, create_engine):
     elif opt['trust_view']:
         states = TrustCert.viz(io.db())
         with (cwd / opt['--view']).open('w') as fp:
-            json.dump(states, fp)
+            json.dump(states, fp, indent=2)
 
 
 class WSGI_App(object):
     template = '''
-        <h1>Update {table}</h1>
-        <form action='' method='post'>
-        <input type='submit' value='Update {table}' />
+        <h1>Sync</h1>
+        <h2>Users from GitHub</h2>
+        <form action='user' method='post'>
+        <input type='submit' value='Update Users' />
+        </form>
+        <h2>Issues from GitHub</h2>
+        <form action='issue' method='post'>
+        <input type='submit' value='Update Issues' />
+        </form>
+        <h2>Trust Ratings</h2>
+        <a href='../trust_net_viz.html'>social network viz</a>
+        <form action='trust_cert' method='post'>
+        <input type='submit' value='Update Trust Ratings' />
         </form>
         '''
 
@@ -125,7 +136,9 @@ class WSGI_App(object):
                           for n in ['PATH_INFO', 'REQUEST_METHOD']]
         if method == 'GET':
             if path in ('/user', '/issue', '/trust_cert'):
-                return self.form(path, start_response)
+                return self.form(start_response)
+            elif path == '/trust_net':
+                return self.trust_net(start_response)
         elif method == 'POST':
             if path == '/user':
                 return self.sync(Collaborators, start_response)
@@ -136,9 +149,9 @@ class WSGI_App(object):
         start_response('404 not found', PLAIN)
         return [('cannot find %r' % path).encode('utf-8')]
 
-    def form(self, path, start_response):
+    def form(self, start_response):
         start_response('200 OK', HTML8)
-        return [self.template.format(table=path).encode('utf-8')]
+        return [self.template.encode('utf-8')]
 
     def sync(self, cls, start_response):
         io = self.__io
@@ -148,12 +161,13 @@ class WSGI_App(object):
 
     def cert_recalc(self, start_response):
         seed, capacities = TrustCert.doc_params()
-        io = self.__io
-        dbr = io.db()
-        TrustCert.update_results(dbr, seed, capacities)
-        states = TrustCert.viz(dbr)
-        start_response('200 OK', PLAIN)
-        return [json.dumps(states, indent=2).encode('utf-8')]
+        TrustCert.update_results(self.__io.db(), seed, capacities)
+        return self.trust_net(start_response)
+
+    def trust_net(self, start_response):
+        net = TrustCert.viz(self.__io.db())
+        start_response('200 OK', JSON)
+        return [json.dumps(net, indent=2).encode('utf-8')]
 
 
 class IO(object):
@@ -468,27 +482,29 @@ class TrustCert(object):
 
     @classmethod
     def viz(cls, dbr):
-        peers_df = pd.read_sql('select distinct login from github_users', dbr)
-        peers = list(peers_df.login.values)
-        cert_df = pd.read_sql('select login, rating from authorities', dbr)
-        certs = {
-            a.login: a.rating
-            for _, a in cert_df.iterrows()
-        }
-        edges_df = pd.read_sql(
-            'select voter, subject, rating from trust_cert', dbr)
-        edges = {
-            voter: [
-                e2.subject
-                for _, e2 in edges_df[edges_df.voter == voter].iterrows()
-            ]
-            for voter in edges_df.voter.unique()
-        }
-        return [{
-            "peers": peers,
-            "certs": certs,
+        users = pd.read_sql(
+            '''
+            select login, convert(verified_coop, char) member_snowflake
+                 , coalesce(rating, -1) as rating, rating_label, weight, sig
+            from user_flair u
+            order by u.login
+            ''', dbr)
+        nodes = [dict(u, id=ix,
+                      rating=None if u.rating < 0 else u.rating)
+                 for ix, u in users.iterrows()]
+        certs = pd.read_sql(
+            'select voter, subject, coalesce(rating, -1) rating from trust_cert', dbr)
+        users.index.name = 'id'
+        byLogin = users.reset_index().set_index('login')
+        certs['from_'] = byLogin.loc[certs.voter].id.values
+        certs['to_'] = byLogin.loc[certs.subject].id.values
+        edges = [{'from': c.from_, 'to': c.to_,
+                  'rating': c.rating if c.rating >= 0 else None }
+                 for _, c in certs.iterrows()]
+        return {
+            "nodes": nodes,
             "edges": edges
-        }]
+        }
 
 
 def noblob(df,
