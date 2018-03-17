@@ -26,26 +26,44 @@ function makeSocialNetwork(makeXHR, container) {
 
     function draw(net) {
 	// colors get darker like karate belts
-	const colors = {
-	    '0': 'white',
-	    apprentice: 'green',
-	    journeyer: 'orange',
-	    master: 'black'
-	};
+	const colors = [
+	    '#f0f0f0', // "white belt"
+	    'khaki', // apprentice
+	    'orange', // journeyer
+	    'grey' // master
+	];
 
 	// create an array with nodes
 	const nodes = new vis.DataSet(
 	    net.nodes.map(
-		n => Object.assign(n, {color: colors[n.rating_label]})));
+		n => Object.assign(n, {
+		    color: {
+			background: colors[n.rating] || '#f0f0f0',
+			border: 'black'
+		    },
+		    label: n.sig,
+		})
+	    ));
 
 	// create an array with edges
-	const edges = new vis.DataSet(net.edges);
+	const edges = new vis.DataSet(
+	    net.edges.map(
+		e => Object.assign(e, {
+		    arrows: 'to',
+		    color: {color: colors[e.rating]},
+		})
+	    ));
 
 	var data = {
 	    nodes: nodes,
 	    edges: edges
 	};
-	var options = {};
+	var options = {
+	    interaction: {
+		navigationButtons: true,
+		keyboard: true
+	    }
+	};
 	var network = new vis.Network(container, data, options);
     }
 
