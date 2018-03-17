@@ -21,12 +21,14 @@ db_url="mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(name)s?charset
 [_tables]
 ;; This section lists the tables to include in your application menu
 admin_settings=Status
-github_users=Users
-reward=Reward
 issue=Issue
+issue_budget=Budget
+reward=Reward
+github_users=Users
+authorities=Ratings
+trust_cert=Certifications
 budget_vote=Budget Vote
 reward_vote=Reward Vote
-issue_budget=Budget
 pay_period=Pay Period
 invoice_info=Invoice Info
 invoice_formatted=Invoice Export
