@@ -24,24 +24,10 @@
 
     <script type="text/javascript" src="net_viz.js"></script>
     <script type="text/javascript">
-      const s_net = makeSocialNetwork(() => new XMLHttpRequest());
-      s_net.fetch().then(net => {
-
-      // create an array with nodes
-      var nodes = new vis.DataSet(net.nodes);
-
-      // create an array with edges
-      var edges = new vis.DataSet(net.edges);
-
-      // create a network
-      var container = document.getElementById('mynetwork');
-      var data = {
-      nodes: nodes,
-      edges: edges
-      };
-      var options = {};
-      var network = new vis.Network(container, data, options);
-      });
+      const s_net = makeSocialNetwork(
+          () => new XMLHttpRequest(),
+          document.getElementById('mynetwork'));
+      s_net.fetch().then(net => s_net.draw(net));
     </script>
 
 
