@@ -175,6 +175,7 @@ function ro_field() {
     # http://xataface.com/forum/viewtopic.php?t=5657#27106
     $perms = Dataface_PermissionsTool::NO_ACCESS();
     $perms['view']=1;
+    $perms['list']=1;
     return $perms;
 }
 

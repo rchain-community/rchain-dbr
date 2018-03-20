@@ -1,0 +1,14 @@
+<div>
+  <div>
+    <strong>
+      <a href="${issue_url}">${issue_title} #${issue_number}</a><br />
+    </strong>
+    <a href="/index.php?-table=issue&-action=browse&-recordid=issue%3Fnum%3D${issue_number}"
+       >votes</a>
+    <small><a href="${url}">comment ${createdAt}</a></small>
+  </div>
+  <pre>
+    ${body}
+  </pre>
+  <hr />
+</div>
