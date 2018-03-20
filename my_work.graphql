@@ -1,0 +1,17 @@
+query($login:String!){
+  user(login: $login) {
+    issueComments(last: 100) {
+      nodes {
+        issue {
+          number
+          url
+          title
+        }
+        createdAt
+        lastEditedAt
+        body
+        url
+      }
+    }
+  }
+}

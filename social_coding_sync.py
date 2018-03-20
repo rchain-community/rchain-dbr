@@ -38,8 +38,10 @@ Options:
                                            'updatedAt': '2001-01-01'}]}}}]
 """
 
+from cgi import parse_qs, escape
 from configparser import SafeConfigParser
 from io import BytesIO, StringIO
+from string import Template
 from urllib.request import Request
 import json
 import logging
@@ -135,7 +137,12 @@ class WSGI_App(object):
         [path, method] = [environ.get(n)
                           for n in ['PATH_INFO', 'REQUEST_METHOD']]
         if method == 'GET':
-            if path in ('/user', '/issue', '/trust_cert'):
+            if path == '/user':
+                login = parse_qs(environ['QUERY_STRING']).get('login')
+                if not login:
+                    return self.form(start_response)
+                return self.my_work(login[0], start_response)
+            elif path in ('/issue', '/trust_cert'):
                 return self.form(start_response)
             elif path == '/trust_net':
                 return self.trust_net(start_response)
@@ -168,6 +175,14 @@ class WSGI_App(object):
         net = TrustCert.viz(self.__io.db())
         start_response('200 OK', JSON)
         return [json.dumps(net, indent=2).encode('utf-8')]
+
+    def my_work(self, login, start_response):
+        io = self.__io
+        worker = Collaborators(io.opener(), io.tok())
+        work = worker.my_work(login)
+        pg_parts = worker.fmt_work(work)
+        start_response('200 OK', HTML8)
+        return pg_parts
 
 
 class IO(object):
@@ -354,7 +369,7 @@ class Issues(QuerySvc):
     cache_filename = 'issues.json'
 
     @classmethod
-    def data(self, pages,
+    def data(cls, pages,
              repo='rchain/bounties'):
         df = pd.DataFrame([
             dict(num=node['number'],
@@ -375,6 +390,10 @@ class Issues(QuerySvc):
 class Collaborators(QuerySvc):
     query = pkg.resource_string(__name__,
                                 'collaborators.graphql').decode('utf-8')
+    q_work = pkg.resource_string(__name__,
+                                'my_work.graphql').decode('utf-8')
+    tpl_work = pkg.resource_string(__name__,
+                                   'my_work.html').decode('utf-8')
     connection = 'collaborators'
     table = 'github_users'
     cache_filename = 'users.json'
@@ -395,6 +414,25 @@ class Collaborators(QuerySvc):
         df = df.fillna(value='')
         df.createdAt = df.createdAt.str.replace('T', ' ').str.replace('Z', '')
         return df
+
+    def my_work(self, login):
+        return self.runQ(self.q_work, {'login': login})
+
+    @classmethod
+    def fmt_work(cls, work):
+        parts = []
+        comments = work['user']['issueComments']['nodes']
+        comments = reversed(sorted(
+            comments,
+            key=lambda c: (c['issue']['number'],
+                           c['createdAt'])))
+        for c in comments:
+            c.update({'issue_' + k: v for k, v in c['issue'].items()})
+            c = {k: escape(str(v)) for k, v in c.items()}
+            section = Template(cls.tpl_work).substitute(c)
+            #section = '<pre>@@' + str(c.keys()) + '</pre>'
+            parts.append(section.encode('utf-8'))
+        return parts
 
 
 class TrustCert(object):
