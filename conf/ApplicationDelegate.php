@@ -154,7 +154,7 @@ class VoteAuth {
      }
 
     function voter__permissions(&$record) {
-        return Dataface_PermissionsTool::READ_ONLY();
+        return ro_field();
     }
 }
 
@@ -167,8 +167,15 @@ class PayPeriodVote extends VoteAuth {
     }
 
     function pay_period__permissions(&$record) {
-        return Dataface_PermissionsTool::READ_ONLY();
+        return ro_field();
     }
+}
+
+function ro_field() {
+    # http://xataface.com/forum/viewtopic.php?t=5657#27106
+    $perms = Dataface_PermissionsTool::NO_ACCESS();
+    $perms['view']=1;
+    return $perms;
 }
 
 ?>
