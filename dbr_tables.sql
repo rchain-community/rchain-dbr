@@ -94,6 +94,7 @@ create table reward_vote (
 )
 ;
 
+alter table reward_vote add column slash boolean;
 
 create table invoice_info (
   pay_period date not null,
