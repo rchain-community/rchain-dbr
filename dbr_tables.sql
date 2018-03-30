@@ -96,17 +96,6 @@ create table reward_vote (
 
 alter table reward_vote add column slash boolean;
 
-create table invoice_info (
-  pay_period date not null,
-  worker varchar(64) not null,
-  name varchar(128) not null,
-  rhoc_wallet varchar(128),
-  primary key(pay_period, worker),
-  foreign key (worker) references github_users(login), -- fk_invoice_worker
-  foreign key (pay_period) references pay_period(start_date) -- fk_invoice_period
-  )
-;
-
 
 create table trust_cert (
         subject varchar(64) not null,

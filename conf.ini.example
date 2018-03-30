@@ -30,8 +30,6 @@ trust_cert=Certifications
 budget_vote=Budget Vote
 reward_vote=Reward Vote
 pay_period=Pay Period
-invoice_info=Invoice Info
-invoice_formatted=Invoice Export
 
 [_auth]
 auth_type=XDB
