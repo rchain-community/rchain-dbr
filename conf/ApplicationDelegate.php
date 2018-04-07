@@ -111,10 +111,6 @@ class conf_ApplicationDelegate {
             );
 
         $query =& $app->getQuery();
-        if ( $query['-table'] == 'admin_settings' and
-             $query['-action'] != 'edit' ){
-            $query['-action'] = 'dashboard';
-        }
         
         ###################
 		#Here I check to see if they are coming from the Discord login. If they are, we need to check to see if they are a coop member.
@@ -137,12 +133,27 @@ class conf_ApplicationDelegate {
     }
 
     function block__before_left_column() {
-        echo "<ul>\n";
-        echo "<li><a href='https://github.com/rchain/bounties/wiki/How-To-Use-the-Budget-Rewards-Web-App'>Help / How-To</a></li>\n";
-        echo "<li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>\n";
-        echo "<li><a href='aux/user'>Sync Users / Issues from GitHub</a></li>\n";
-        echo "<li><a href='trust_net_viz.html'>Community Trust Network</a></li>\n";
-        echo "</ul>\n";
+        $site = DATAFACE_SITE_HREF;
+        echo <<<EOT
+<ul>
+  <li><a href='https://github.com/rchain/bounties/wiki/How-To-Use-the-Budget-Rewards-Web-App'>Help / How-To</a></li>
+
+  <li><a href="{$site}?-table=issue&-action=list&-sort=num+desc">Recent Issues</a></li>
+
+  <li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>
+  <li><a href='aux/user'>Sync Users / Issues from GitHub</a></li>
+  <li><a href='trust_net_viz.html'>Community Trust Network</a></li>
+EOT;
+
+        $auth =& Dataface_AuthenticationTool::getInstance();
+        $user =& $auth->getLoggedInUser();
+        if (isset($user)) {
+            $login = $user->val('login');
+            echo <<<EOT
+  <li><a href="{$site}?-table=github_users&amp;-action=related_records_list&amp;-mode=list&amp;-recordid=github_users%3Flogin%3D{$login}&-relationship=Reward">Rewards for {$login}</a></li>
+EOT;
+        }
+        echo "</ul>";
     }
 }
 
