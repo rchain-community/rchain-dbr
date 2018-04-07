@@ -23,7 +23,6 @@ create table pay_period (
     -- Rchain RHOC Volume Weighted Average
     --    https://docs.google.com/spreadsheets/d/1XlbJchQhIVmn57pe8eeJ9QctKIWk5KLEToRyCGu2TgM/edit#gid=356502091
     -- update pay_period set usd_per_rhoc=1.615;
-        usd_per_rhoc decimal(12, 3)
         )
     ;
 
