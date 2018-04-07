@@ -4,7 +4,7 @@ create trigger percent_max_100_insert
 before insert on reward_vote for each row
 begin
   declare pct_tot int;
-  select coalesce(sum(percent), 0) into pct_tot
+  select coalesce(sum(greatest(percent, 0)), 0) into pct_tot
   from reward_vote cur
   where cur.pay_period = new.pay_period
     and cur.issue_num = new.issue_num
@@ -21,7 +21,7 @@ before update on reward_vote
 for each row
 begin
   declare pct_tot int;
-  select coalesce(sum(percent), 0) into pct_tot
+  select coalesce(sum(greatest(percent, 0)), 0) into pct_tot
   from reward_vote cur
   where cur.pay_period = new.pay_period
       and cur.issue_num = new.issue_num
