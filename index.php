@@ -38,8 +38,19 @@ if(checkForDiscordRedirect())
 }
 
 
+/**
+ * ref Changing the Default Sort Order
+ *  http://xataface.com/documentation/how-to/list_tab
+ */
+function defaultSort($table, $order) {
+    if ( !isset($_REQUEST['-sort']) and @$_REQUEST['-table'] == $table ){
+        $_REQUEST['-sort'] = $_GET['-sort'] = $order;
+    }
+}
+
+defaultSort('issue', 'num desc');
+
 // Initialize Xataface framework
 df_init(__FILE__, 'xataface-2.1.3')->display();
     // first parameter is always the same (path to the current script)
     // 2nd parameter is relative URL to xataface directory (used for CSS files and javascripts)
-  

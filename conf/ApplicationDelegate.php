@@ -137,11 +137,10 @@ class conf_ApplicationDelegate {
         echo <<<EOT
 <ul>
   <li><a href='https://github.com/rchain/bounties/wiki/How-To-Use-the-Budget-Rewards-Web-App'>Help / How-To</a></li>
-
-  <li><a href="{$site}?-table=issue&-action=list&-sort=num+desc">Recent Issues</a></li>
-
-  <li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>
-  <li><a href='aux/user'>Sync Users / Issues from GitHub</a></li>
+  <ul>
+    <li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>
+  </ul>
+  <li><a href='aux/user'><b>Sync</b> Users / Issues</a></li>
   <li><a href='trust_net_viz.html'>Community Trust Network</a></li>
 EOT;
 
@@ -153,11 +152,21 @@ EOT;
   <li><a href="{$site}?-table=github_users&amp;-action=related_records_list&amp;-mode=list&amp;-recordid=github_users%3Flogin%3D{$login}&-relationship=Reward">Rewards for {$login}</a></li>
 EOT;
         }
+
+        $current = substr(str_replace('-', '', current_pay_period()), 0, 6);
+        echo "<li>current: <b>$current</b></li>";
         echo "</ul>";
     }
 }
 
-class VoteAuth {
+
+class HasPayPeriod {
+    function pay_period__renderCell(&$record) {
+        return fmt_pay_period($record->val('pay_period'));
+    }
+}
+
+class VoteAuth extends HasPayPeriod {
      function voter__default() {
          $auth =& Dataface_AuthenticationTool::getInstance();
          $user =& $auth->getLoggedInUser();
@@ -171,16 +180,26 @@ class VoteAuth {
 
 class PayPeriodVote extends VoteAuth {
     function pay_period__default () {
-        $res = df_query("select current_pay_period from admin_settings", null, true);
-        if ( !$res ) throw new Exception(mysql_error(df_db()));
-        $pp = $res[0]['current_pay_period'];
-        return $pp;
+        return current_pay_period();
     }
 
     function pay_period__permissions(&$record) {
         return ro_field();
     }
 }
+
+function current_pay_period() {
+    $res = df_query("select current_pay_period from admin_settings", null, true);
+    if ( !$res ) throw new Exception(mysql_error(df_db()));
+    $pp = $res[0]['current_pay_period'];
+    return $pp;
+}
+
+function fmt_pay_period($pp) {
+    $yyyymm = sprintf('%04d%02d', $pp['year'], $pp['month']);
+    return $yyyymm;
+}
+
 
 function ro_field() {
     # http://xataface.com/forum/viewtopic.php?t=5657#27106
