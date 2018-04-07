@@ -24,7 +24,6 @@ from (
 	from issue i
 	    join budget_vote bv on bv.issue_num = i.num
 	    join user_flair uf on uf.login = bv.voter and uf.verified_coop is not null
-            join admin_settings s on s.current_pay_period = bv.pay_period
 	group by bv.pay_period, i.num, i.title
 ) ea
 ;
