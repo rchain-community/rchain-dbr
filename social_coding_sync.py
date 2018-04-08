@@ -7,6 +7,7 @@ Usage:
   social_coding_sync [options] users_insert
   social_coding_sync [options] reactions_get
   social_coding_sync [options] trust_seed
+  social_coding_sync [options] trust_unseed
   social_coding_sync [options] trusted
   social_coding_sync [options] trust_view
 
@@ -98,7 +99,14 @@ def main(argv, cwd, build_opener, create_engine):
         with cache_open('reactions.json', mode='r', what='reactions') as fp:
             reaction_info = json.load(fp)
         reactions = Reactions.normalize(reaction_info)
-        TrustCert.seed_from_reactions(reactions, io.db()).reset_index()
+        TrustCert.seed_from_reactions(reactions, io.db())
+
+    elif opt['trust_unseed']:
+        log.info('using cache %s to get saved reactions', opt['--cache'])
+        with cache_open('reactions.json', mode='r', what='reactions') as fp:
+            reaction_info = json.load(fp)
+        reactions = Reactions.normalize(reaction_info)
+        TrustCert.unseed_from_reactions(reactions, io.db())
 
     elif opt['trusted']:
         seed, capacities = TrustCert.doc_params(opt)
@@ -452,7 +460,7 @@ class TrustCert(object):
         return trusted
 
     @classmethod
-    def seed_from_reactions(cls, reactions, dbr):
+    def _certs_from_reactions(cls, reactions, users):
         certs = reactions.reset_index().rename(columns={
             'user': 'voter',
             'author': 'subject',
@@ -463,18 +471,52 @@ class TrustCert(object):
         log.info('dckc certs:\n%s',
                  certs[certs.voter == 'dckc'])
         log.info('to_sql...')
-        users = pd.read_sql('select * from github_users', con=dbr)
         ok = certs.voter.isin(users.login) & certs.subject.isin(users.login)
         if not all(ok):
             log.warn('bad users:\n%s', certs[~ok])
             certs = certs[ok]
+        return certs.set_index(['voter', 'subject'])
+
+    @classmethod
+    def seed_from_reactions(cls, reactions, dbr):
+        users = pd.read_sql('select * from github_users', con=dbr)
+        certs = cls._certs_from_reactions(reactions, users)
         dbr.execute('delete from %s' % cls.table)
-        certs = certs.set_index(['voter', 'subject'])
         certs.to_sql(cls.table, con=dbr, if_exists='append',
                      dtype=noblob(certs))
         log.info('%d rows inserted into %s:\n%s',
                  len(certs), cls.table, certs.head())
         return certs
+
+    @classmethod
+    def unseed_from_reactions(cls, reactions, dbr):
+        users = pd.read_sql('select * from github_users', con=dbr)
+        log.info('%d in github_users table', len(users))
+        certs_inferred = cls._certs_from_reactions(reactions, users)
+        log.info("%d certs inferred from cached reactions",
+                 len(certs_inferred))
+        certs_on_file = pd.read_sql(
+            'select voter, subject, rating, cert_time from trust_cert', dbr)
+        certs_on_file = certs_on_file.set_index(['voter', 'subject'])
+        log.info("%d in trust_certs table", len(certs_on_file))
+        certs_both = intersection(certs_inferred, certs_on_file)
+        log.info("%d in common:\n%s\n...",
+                 len(certs_both), certs_both.head())
+
+        certs_both.to_sql('tmp_cert', dbr, if_exists='replace')
+        [before] = dbr.execute('select count(*) from trust_cert').fetchone()
+        dbr.execute('''
+            delete tc from trust_cert tc
+            inner join tmp_cert tmp
+              on tc.voter     = tmp.voter
+             and tc.subject   = tmp.subject
+             and tc.cert_time = tmp.cert_time
+             and tc.rating    = tmp.rating
+        ''')
+        [after] = dbr.execute('select count(*) from trust_cert').fetchone()
+        dbr.execute('drop table tmp_cert')
+        log.info('%d rows before - %d after = %d trust_cert rows removed',
+                 before, after, before - after)
 
     @classmethod
     def doc_params(cls, opt=None):
@@ -556,6 +598,12 @@ def noblob(df,
     return {col: sqla.types.String(length=pad + df[col].str.len().max())
             for col, t in zip(df.columns.values, df.dtypes)
             if t.kind == 'O'}
+
+
+def intersection(d1, d2):
+    d1 = d1.reset_index()
+    d2 = d2.reset_index()
+    return d1.merge(d2, how='inner')
 
 
 class MockIO(object):
