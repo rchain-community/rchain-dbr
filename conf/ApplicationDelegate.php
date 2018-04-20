@@ -63,7 +63,7 @@ class conf_ApplicationDelegate {
                  if ( $in_listing or $adding ) {
                      $perms['add new related record'] = 1;
                  }
-                 else if ($viewing and
+                 else if (isset($viewing) and $viewing and
                           $app->getRecord()->val('voter') == $user->val('login') ) {
                      $perms['edit'] = 1;
                      $perms['delete'] = 1;
