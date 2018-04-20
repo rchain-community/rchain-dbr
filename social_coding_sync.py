@@ -134,6 +134,9 @@ class WSGI_App(object):
         <h2>Trust Ratings</h2>
         <a href='../trust_net_viz.html'>social network viz</a>
         <form action='trust_cert' method='post'>
+        <div><label>Seed: <input type='text' name='seed' /></label></div>
+        <div><label>Capacities:
+          <input type='text' name='capacities' /></label></div>
         <input type='submit' value='Update Trust Ratings' />
         </form>
         '''
@@ -160,7 +163,8 @@ class WSGI_App(object):
             elif path == '/issue':
                 return self.sync(Issues, start_response)
             elif path == '/trust_cert':
-                return self.cert_recalc(start_response)
+                params = self._post_params(environ)
+                return self.cert_recalc(start_response, params)
         start_response('404 not found', PLAIN)
         return [('cannot find %r' % path).encode('utf-8')]
 
@@ -174,10 +178,27 @@ class WSGI_App(object):
         start_response('200 ok', PLAIN)
         return [('%d records' % len(data)).encode('utf-8')]
 
-    def cert_recalc(self, start_response):
+    def cert_recalc(self, start_response, params):
         seed, capacities = TrustCert.doc_params()
+        if 'seed' in params:
+            seed = params.get('seed', '').split(',')
+        if 'capacities' in params:
+            try:
+                capacities = [int(c) for c in
+                              params.get('capacities', '').split(',')]
+            except ValueError:
+                pass
         TrustCert.update_results(self.__io.db(), seed, capacities)
         return self.trust_net(start_response)
+
+    def _post_params(self, environ):
+        try:
+            request_body_size = int(environ.get('CONTENT_LENGTH', 0))
+        except (ValueError):
+            request_body_size = 0
+
+        request_body = environ['wsgi.input'].read(request_body_size)
+        return parse_qs(request_body)
 
     def trust_net(self, start_response):
         net = TrustCert.viz(self.__io.db())
