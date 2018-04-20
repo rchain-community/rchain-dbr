@@ -1,13 +1,6 @@
 ;; http://xataface.com/wiki/How_to_build_a_PHP_MySQL_Application_with_4_lines_of_code
 
 title="RChain Bounty Budget and Rewards (BETA)"
-
-;; G2 became the default in June 2014
-;; http://xataface.com/forum/index.php?place=msg%2Fxataface%2F1kTnikzBs4w%2FN3h_HAbHcAkJ
-;; but somehow it interacts poorly with X-Frame-Options: DENY, leaving liks to details unusable
-;; https://github.com/rchain/bounties/issues/610
-disable_g2=1
-
 [_xataface_installation]
 xataface_location=xataface-2.1.3/dataface-public-api.php
 
