@@ -188,8 +188,9 @@ class WSGI_App(object):
                               params.get('capacities', '').split(',')]
             except ValueError:
                 pass
-        TrustCert.update_results(self.__io.db(), seed, capacities)
-        return self.trust_net(start_response)
+        ratings = TrustCert.update_results(self.__io.db(), seed, capacities)
+        start_response('200 ok', PLAIN)
+        return [('%d records' % len(ratings)).encode('utf-8')]
 
     def _post_params(self, environ):
         try:
@@ -476,6 +477,7 @@ class TrustCert(object):
             for rating in TrustCert.ratings])
         trusted = trusted.groupby('login').max()
         trusted = trusted.sort_index()
+        trusted = trusted[trusted.index != '<superseed>']
         trusted.to_sql('authorities', if_exists='replace', con=dbr,
                        dtype=noblob(trusted))
         return trusted
