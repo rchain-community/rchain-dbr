@@ -11,7 +11,7 @@ left join authorities r on u.login = r.login
 ;
 
 
-create or replace view issue_budget as
+create or replace view issue_budget_unwt as
 select issue_num, title
     , case when voter_qty >= 3 then budget_provisional else null end budget_usd
     , budget_provisional, voter_qty, voters, pay_period
@@ -29,7 +29,7 @@ from (
 ;
 -- select * from issue_budget;
 
-create or replace view issue_budget_wt as
+create or replace view issue_budget as
 select issue_num, title
     , case when voter_qty >= 3 then budget_provisional else null end budget_usd
     , budget_provisional, voter_qty, voters, pay_period
@@ -48,7 +48,7 @@ from (
 ) ea
 ;
 
-create or replace view reward as
+create or replace view reward_unwt as
 select issue_num, title
      , worker
      , case when voter_qty >= 3 then reward_usd_1 else null end reward_usd
@@ -67,7 +67,7 @@ from (
 	     , round(avg(rv.percent), 2) percent_avg
 	     , round(avg(rv.percent) / 100 * ib.budget_provisional) reward_provisional
 	     , round(avg(rv.percent) / 100 * ib.budget_usd) reward_usd_1
-	from issue_budget ib
+	from issue_budget_unwt ib
 	join reward_vote rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
         join user_flair uf on uf.login = rv.voter and uf.verified_coop is not null
 	group by ib.pay_period, ib.issue_num, ib.title, rv.worker
@@ -85,7 +85,7 @@ group by rv.worker, issue_num, pay_period
 having sum(uf.weight) >= 10
 ;
 
-create or replace view reward_wt as
+create or replace view reward as
 select issue_num, title
      , worker
      , case
