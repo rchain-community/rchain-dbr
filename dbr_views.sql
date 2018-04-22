@@ -24,12 +24,13 @@ from (
 	from issue i
 	    join budget_vote bv on bv.issue_num = i.num
 	    join user_flair uf on uf.login = bv.voter and uf.verified_coop is not null
+	    join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=0 
 	group by bv.pay_period, i.num, i.title
 ) ea
 ;
 -- select * from issue_budget;
 
-create or replace view issue_budget as
+create or replace view issue_budget_wt as
 select issue_num, title
     , case when voter_qty >= 3 then budget_provisional else null end budget_usd
     , budget_provisional, voter_qty, voters, pay_period
@@ -42,11 +43,16 @@ from (
 	from issue i
 	    join budget_vote bv on bv.issue_num = i.num
 	    join user_flair uf on uf.login = bv.voter and uf.verified_coop is not null
-            join admin_settings s on s.current_pay_period = bv.pay_period
+	    join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=1
 	where uf.weight > 0
 	group by bv.pay_period, i.num, i.title
 ) ea
 ;
+
+create or replace view issue_budget as
+select * from issue_budget_unwt
+union all
+select * from issue_budget_wt;
 
 create or replace view reward_unwt as
 select issue_num, title
@@ -85,7 +91,7 @@ group by rv.worker, issue_num, pay_period
 having sum(uf.weight) >= 10
 ;
 
-create or replace view reward as
+create or replace view reward_wt as
 select issue_num, title
      , worker
      , case
@@ -113,7 +119,7 @@ from (
 	     , round(sum(rv.percent * uf.weight) / sum(uf.weight), 2) percent_avg
 	     , round(sum(rv.percent * uf.weight) / sum(uf.weight) / 100 * ib.budget_provisional) reward_provisional
 	     , round(sum(rv.percent * uf.weight) / sum(uf.weight) / 100 * ib.budget_usd) reward_usd_1
-	from issue_budget ib
+	from issue_budget_wt ib
 	join reward_vote rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
         join user_flair uf on uf.login = rv.voter
 	where uf.verified_coop is not null and uf.weight > 0
@@ -121,3 +127,7 @@ from (
 ) ea
 ;
 -- eyeball it: select * from reward_wt order by voter_qty desc;
+create or replace view reward as
+select * from reward_unwt
+union all
+select * from reward_wt;

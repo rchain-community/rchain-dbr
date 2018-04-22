@@ -20,11 +20,9 @@ create table issue (
 create table pay_period (
         start_date date primary key,
         end_date date not null,
-    -- Rchain RHOC Volume Weighted Average
-    --    https://docs.google.com/spreadsheets/d/1XlbJchQhIVmn57pe8eeJ9QctKIWk5KLEToRyCGu2TgM/edit#gid=356502091
-    -- update pay_period set usd_per_rhoc=1.615;
         )
     ;
+alter table pay_period add column weighted boolean;
 
 create table admin_settings (
         id integer primary key, --  auto_increment
