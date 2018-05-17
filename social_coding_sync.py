@@ -394,6 +394,11 @@ class Issues(QuerySvc):
         df = pd.DataFrame([
             dict(num=node['number'],
                  title=node['title'],
+                 labels=json.dumps([
+                     label['name']
+                     for label in node.get('labels', {}).get('nodes', [])
+                     ]),
+                 createdAt=node['createdAt'],
                  updatedAt=node['updatedAt'],
                  state=node['state'],
                  repo=repo)
@@ -401,9 +406,10 @@ class Issues(QuerySvc):
             for node in page['repository']['issues']['nodes']
         ])
         # df['updatedAt'] = pd.to_datetime(df.updatedAt)
-        when = df.updatedAt
-        when = when.str.replace('T', ' ').str.replace('Z', '')
+        when = df.updatedAt.str.replace('T', ' ').str.replace('Z', '')
         df['updatedAt'] = when
+        when = df.createdAt.str.replace('T', ' ').str.replace('Z', '')
+        df['createdAt'] = when
         return df
 
 
