@@ -10,10 +10,12 @@ drop table if exists issue;
 create table issue (
   num integer primary key,
   title varchar(1024) not null,
+  labels text,
+  createdAt timestamp,
   updatedAt timestamp,
   `state` varchar(32) not null,
   repo varchar(1024) not null
-)
+) CHARACTER SET=utf8
 ;
 
 
