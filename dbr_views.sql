@@ -131,3 +131,25 @@ create or replace view reward as
 select * from reward_unwt
 union all
 select * from reward_wt;
+
+
+create or replace view task_approval_overdue as
+select i.* from (
+  select num issue_num, title, state
+       , datediff(current_timestamp, i.createdAt) days_old
+       , round(datediff(current_timestamp, i.createdAt) / 7 ) weeks_old
+       , labels, createdAt, updatedAt
+  from issue i
+  where i.updatedAt < date_sub(current_timestamp, interval 36 hour) -- issues discussed recently are excused
+  and ((i.state = 'OPEN' and i.labels not like '%"needs-SMART-objective"%')
+       or 
+       (datediff(current_timestamp, i.updatedAt) < 60  -- updated in the last pay period or two
+        and i.labels not like '%"invalid"%'
+        and i.labels not like '%"wontfix"%'
+	and i.labels not like '%"duplicate"%'))
+) i
+left join issue_budget ib on ib.issue_num = i.issue_num
+where days_old between 5 and 90
+and ib.issue_num is null  -- no budget votes at all, let alone a critical mass
+order by days_old desc
+;

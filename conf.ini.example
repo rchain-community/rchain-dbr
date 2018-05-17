@@ -29,6 +29,7 @@ authorities=Ratings
 trust_cert=Certifications
 budget_vote=Budget Vote
 reward_vote=Reward Vote
+task_approval_overdue=Task Approval Overdue
 pay_period=Pay Period
 
 [_auth]
