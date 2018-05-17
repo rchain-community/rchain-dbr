@@ -16,9 +16,9 @@ Options:
                     and _databse.db_url
                     [default: conf.ini]
   --seed=NAMES      login names (comma separated) of trust seed
-                    [default: dckc,Jake-Gillberg]
-  --capacities=XS   network flow capacities (comma separated)
-                    [default: 21,13,8,5]
+                    [default: dckc,Jake-Gillberg,kitblake]
+  --good_nodes=XS   qty of good nodes for each rating (comma separated)
+                    [default: 45,25,15]
   --view=FILE       filename for social network visualization
                     [default: ,states.js]
   --cache=DIR       directory for query results [default: cache]
@@ -42,6 +42,7 @@ Options:
 from cgi import parse_qs, escape
 from configparser import SafeConfigParser
 from io import BytesIO, StringIO
+from math import ceil
 from string import Template
 from urllib.request import Request
 import json
@@ -109,8 +110,8 @@ def main(argv, cwd, build_opener, create_engine):
         TrustCert.unseed_from_reactions(reactions, io.db())
 
     elif opt['trusted']:
-        seed, capacities = TrustCert.doc_params(opt)
-        trusted = TrustCert.update_results(io.db(), seed, capacities)
+        seed, good_nodes = TrustCert.doc_params(opt)
+        trusted = TrustCert.update_results(io.db(), seed, good_nodes)
         by_rating = trusted.groupby('rating')[['login']].count()
         log.info('trust count by rating:\n%s', by_rating)
 
@@ -134,9 +135,6 @@ class WSGI_App(object):
         <h2>Trust Ratings</h2>
         <a href='../trust_net_viz.html'>social network viz</a>
         <form action='trust_cert' method='post'>
-        <div><label>Seed: <input type='text' name='seed' /></label></div>
-        <div><label>Capacities:
-          <input type='text' name='capacities' /></label></div>
         <input type='submit' value='Update Trust Ratings' />
         </form>
         '''
@@ -179,17 +177,10 @@ class WSGI_App(object):
         return [('%d records' % len(data)).encode('utf-8')]
 
     def cert_recalc(self, start_response, params):
-        seed, capacities = TrustCert.doc_params()
-        if 'seed' in params:
-            seed = params.get('seed', '').split(',')
-        if 'capacities' in params:
-            try:
-                capacities = [int(c) for c in
-                              params.get('capacities', '').split(',')]
-            except ValueError:
-                pass
-        TrustCert.update_results(self.__io.db(), seed, capacities)
-        return self.trust_net(start_response)
+        seed, good_nodes = TrustCert.doc_params()
+        ratings = TrustCert.update_results(self.__io.db(), seed, good_nodes)
+        start_response('200 ok', PLAIN)
+        return [('%d records' % len(ratings)).encode('utf-8')]
 
     def _post_params(self, environ):
         try:
@@ -403,6 +394,11 @@ class Issues(QuerySvc):
         df = pd.DataFrame([
             dict(num=node['number'],
                  title=node['title'],
+                 labels=json.dumps([
+                     label['name']
+                     for label in node.get('labels', {}).get('nodes', [])
+                     ]),
+                 createdAt=node['createdAt'],
                  updatedAt=node['updatedAt'],
                  state=node['state'],
                  repo=repo)
@@ -410,9 +406,10 @@ class Issues(QuerySvc):
             for node in page['repository']['issues']['nodes']
         ])
         # df['updatedAt'] = pd.to_datetime(df.updatedAt)
-        when = df.updatedAt
-        when = when.str.replace('T', ' ').str.replace('Z', '')
+        when = df.updatedAt.str.replace('T', ' ').str.replace('Z', '')
         df['updatedAt'] = when
+        when = df.createdAt.str.replace('T', ' ').str.replace('Z', '')
+        df['createdAt'] = when
         return df
 
 
@@ -470,12 +467,13 @@ class TrustCert(object):
     ratings = [1, 2, 3]
 
     @classmethod
-    def update_results(cls, dbr, seed, capacities):
+    def update_results(cls, dbr, seed, good_nodes):
         trusted = pd.concat([
-            cls.trust_flow(dbr, seed, capacities, rating).reset_index()
+            cls.trust_flow(dbr, seed, good_nodes[rating - 1], rating).reset_index()
             for rating in TrustCert.ratings])
         trusted = trusted.groupby('login').max()
         trusted = trusted.sort_index()
+        trusted = trusted[trusted.index != '<superseed>']
         trusted.to_sql('authorities', if_exists='replace', con=dbr,
                        dtype=noblob(trusted))
         return trusted
@@ -544,11 +542,12 @@ class TrustCert(object):
         if opt is None:
             opt = docopt(USAGE, argv=['trusted'])
         seed = opt['--seed'].split(',')
-        capacities = [int(c) for c in opt['--capacities'].split(',')]
-        return seed, capacities
+        good_nodes = [int(c) for c in opt['--good_nodes'].split(',')]
+        return seed, good_nodes
 
     @classmethod
-    def trust_flow(cls, dbr, seed, capacities, rating=1):
+    def trust_flow(cls, dbr, seed, good_qty,
+                   rating=1, max_level=4):
         g = net_flow.NetFlow()
 
         last_cert = pd.read_sql('''
@@ -570,6 +569,21 @@ class TrustCert(object):
         for s in seed:
             g.add_edge(superseed, s)
 
+        # "The capacity of the seed should be equal to
+        # the number of good servers in the network,
+        # and the capacity of each successive level should be
+        # the previous level's capacity divided by the average outdegree."
+        out_degree = pd.read_sql('''
+            select avg(out_degree) avg from (
+              select voter, count(*) out_degree
+              from {table}
+              where rating >= {rating}
+              group by voter
+            ) by_voter
+        '''.format(table=cls.table, rating=rating), dbr).iloc[0]
+
+        capacities = [ceil(good_qty / out_degree.avg ** level)
+                      for level in range(max_level + 1)]
         flow = g.max_flow_extract(superseed, capacities)
         ok = pd.DataFrame([
             dict(login=login)

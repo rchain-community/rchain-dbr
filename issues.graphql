@@ -13,6 +13,11 @@ query PARAMETERS {
         }
         state
         title
+        labels(first: 16) {
+          nodes {
+	    name
+          }
+	}
         createdAt
         updatedAt
       }
