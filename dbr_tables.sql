@@ -18,6 +18,13 @@ create table issue (
 ) CHARACTER SET=utf8
 ;
 
+DROP TABLE IF EXISTS `authorities`;
+CREATE TABLE `authorities` (
+  `login` varchar(18) DEFAULT NULL,
+  `rating` bigint(20) DEFAULT NULL,
+  `last_cert_time` datetime DEFAULT NULL,
+  KEY `ix_authorities_login` (`login`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 create table pay_period (
         start_date date primary key,
