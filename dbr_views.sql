@@ -14,9 +14,9 @@ left join authorities r on u.login = r.login
 create or replace view issue_budget_unwt as
 select issue_num, title
     , case when voter_qty >= 3 then budget_provisional else null end budget_usd
-    , budget_provisional, voter_qty, voters, pay_period
+    , budget_provisional, voter_qty, voters, pay_period, labels
 from (
-	select bv.issue_num, i.title
+	select bv.issue_num, i.title, i.labels
 	     , count(distinct uf.verified_coop) voter_qty
 	     , group_concat(uf.sig separator ', ') voters
 	     , round(avg(bv.amount), 2) budget_provisional
@@ -33,9 +33,9 @@ from (
 create or replace view issue_budget_wt as
 select issue_num, title
     , case when voter_qty >= 3 then budget_provisional else null end budget_usd
-    , budget_provisional, voter_qty, voters, pay_period
+    , budget_provisional, voter_qty, voters, pay_period, labels
 from (
-	select bv.issue_num, i.title
+	select bv.issue_num, i.title, i.labels
 	     , count(distinct uf.verified_coop) voter_qty
 	     , group_concat(uf.sig separator ', ') voters
 	     , round(sum(bv.amount * uf.weight) / sum(uf.weight), 2) budget_provisional
@@ -63,9 +63,9 @@ select issue_num, title
      , voter_qty, voters
      , reward_provisional
      , budget_provisional
-     , pay_period
+     , pay_period, labels
 from (
-	select ib.pay_period, ib.issue_num, ib.title, rv.worker
+	select ib.pay_period, ib.issue_num, ib.title, ib.labels, rv.worker
 	     , count(distinct uf.verified_coop) voter_qty
 	     , group_concat(uf.sig separator ', ') voters
              , ib.budget_provisional
@@ -109,9 +109,9 @@ select issue_num, title
      , voter_qty, voters
      , reward_provisional
      , budget_provisional
-     , pay_period
+     , pay_period, labels
 from (
-	select ib.pay_period, ib.issue_num, ib.title, rv.worker
+	select ib.pay_period, ib.issue_num, ib.title, ib.labels, rv.worker
 	     , count(distinct uf.verified_coop) voter_qty
 	     , group_concat(uf.sig separator ', ') voters
              , ib.budget_provisional
