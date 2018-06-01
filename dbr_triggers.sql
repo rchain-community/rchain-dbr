@@ -32,47 +32,59 @@ begin
 end
 //
 
+create procedure ensure_vote_current(issue_num int, pay_period date)
+begin
+  declare current_start date;
+  declare current_end date;
+  declare issue_created date;
+  select current_pay_period, pp.end_date into current_start, current_end
+  from admin_settings admin
+  join pay_period pp on admin.current_pay_period = pp.start_date;
+  select createdAt into issue_created
+  from issue where issue.num = issue_num;
+
+  if (pay_period != current_start) then
+    signal sqlstate '45000' set message_text = 'votes must use current pay period';
+  end if;
+  if (issue_created > current_end) then
+    signal sqlstate '45000' set message_text = 'No votes on issues created after the current pay period';
+  end if;
+end
+//
+
 create trigger current_edit_bv_insert
 before insert on budget_vote for each row begin
-  if (new.pay_period != (select current_pay_period from admin_settings)) then
-    signal sqlstate '45000' set message_text = 'budget votes must use current pay period';
-  end if;
+  call ensure_vote_current(new.issue_num, new.pay_period);
 end
 //
 create trigger current_edit_rv_insert
 before insert on reward_vote for each row begin
-  if (new.pay_period != (select current_pay_period from admin_settings)) then
-    signal sqlstate '45000' set message_text = 'reward votes must use current pay period';
-  end if;
+  call ensure_vote_current(new.issue_num, new.pay_period);
 end
 //
 create trigger current_edit_bv_delete
 before delete on budget_vote for each row begin
-  if (old.pay_period != (select current_pay_period from admin_settings)) then
-    signal sqlstate '45000' set message_text = 'delete budget vote from current pay period only';
-  end if;
+  call ensure_vote_current(old.issue_num, old.pay_period);
 end
 //
 create trigger current_edit_rv_delete
 before delete on reward_vote for each row begin
-  if (old.pay_period != (select current_pay_period from admin_settings)) then
-    signal sqlstate '45000' set message_text = 'delete reward vote from current pay period only';
-  end if;
+  call ensure_vote_current(old.issue_num, old.pay_period);
 end
 //
 create trigger current_edit_bv_update
 before update on budget_vote for each row begin
-  if (new.pay_period != old.pay_period ||
-      new.pay_period != (select current_pay_period from admin_settings)) then
-    signal sqlstate '45000' set message_text = 'update budget vote from current pay period only';
+  call ensure_vote_current(old.issue_num, old.pay_period);
+  if (new.pay_period != old.pay_period) then
+    signal sqlstate '45000' set message_text = 'cannot change pay period';
   end if;
 end
 //
 create trigger current_edit_rv_update
 before update on reward_vote for each row begin
-  if (new.pay_period != old.pay_period ||
-      new.pay_period != (select current_pay_period from admin_settings)) then
-    signal sqlstate '45000' set message_text = 'update reward vote from current pay period only';
+  call ensure_vote_current(old.issue_num, old.pay_period);
+  if (new.pay_period != old.pay_period) then
+    signal sqlstate '45000' set message_text = 'cannot change pay period';
   end if;
 end
 //
