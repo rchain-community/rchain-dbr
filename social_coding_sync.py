@@ -18,7 +18,7 @@ Options:
   --seed=NAMES      login names (comma separated) of trust seed
                     [default: dckc,Jake-Gillberg,kitblake]
   --good_nodes=XS   qty of good nodes for each rating (comma separated)
-                    [default: 100,25,15]
+                    [default: 45,25,15]
   --view=FILE       filename for social network visualization
                     [default: ,states.js]
   --cache=DIR       directory for query results [default: cache]
