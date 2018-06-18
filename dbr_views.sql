@@ -154,3 +154,13 @@ where days_old between 5 and 90
 and ib.issue_num is null  -- no budget votes at all, let alone a critical mass
 order by days_old desc
 ;
+
+create or replace view invoice_summary as
+  select pay_period, worker
+, group_concat(issue_num separator ', ') as issues
+, sum(reward_usd) USD
+, sum(reward_usd) / rate RHOC
+from reward r
+join pay_period pp on pp.start_date = r.pay_period
+where r.reward_usd > 0
+group by r.pay_period, r.worker;
