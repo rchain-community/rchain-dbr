@@ -86,7 +86,7 @@ select worker, group_concat(uf.sig separator ', ') voters, sum(uf.weight) weight
      , pay_period
 from reward_vote rv
 join user_flair uf on uf.login = rv.voter
-where slash is not null
+where slash > 0
 group by rv.worker, issue_num, pay_period
 having sum(uf.weight) >= 10
 ;
