@@ -11,7 +11,8 @@ create table issue (
   num integer primary key,
   title varchar(1024) not null,
   labels text,
-  createdAt timestamp,
+  createdAt timestamp default current_timestamp,
+  updatedAt timestamp default current_timestamp,
   updatedAt timestamp,
   `state` varchar(32) not null,
   repo varchar(1024) not null
@@ -29,9 +30,10 @@ CREATE TABLE `authorities` (
 create table pay_period (
         start_date date primary key,
         end_date date not null,
+        weighted boolean,
+	rate float
         )
     ;
-alter table pay_period add column weighted boolean;
 
 create table admin_settings (
         id integer primary key, --  auto_increment
