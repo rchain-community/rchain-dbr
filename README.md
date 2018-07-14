@@ -106,4 +106,9 @@ You may need to set other ansible vars such as
 When creating your github OAuth app, the callback URL should
 correspond to `github_auth_callback.php`.
 
+As shown in `dbr_aux.service` and `deploy_tasks/nginx_site.yml`, the
+python code runs as a systemd service called `dbr_aux`; `nginx`
+connects to it via a socket: `/tmp/dbr_aux.sock`. _ISSUE: how is the
+socket supposed to get created?_
+
 [ansible]: https://docs.ansible.com/ansible/latest/index.html
