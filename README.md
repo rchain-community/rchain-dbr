@@ -19,7 +19,7 @@ See [Usable Web app prototype for RAM distributed budgeting and reward
 system #260](https://github.com/rchain/bounties/issues/260)
 
 
-## Design notes: powered by xataface, PHP, and mysql
+## Design notes: powered by xataface, PHP, python, and mysql
 
 Please excuse the use of PHP; [Rholang][] isn't here yet. :-)
 
@@ -37,6 +37,9 @@ widgets, relationships, permissions, and templates is a little extra
 work, but it's all quite straightforward. For this (and because I have
 years of experience using it in hh-office), I am willing to hold my
 nose and use PHP.
+
+Some auxiliary functions such as sync with github and computing the
+trust metric are written in python with sqlalchemy and pandas.
 
 [Rholang]: https://developer.rchain.coop/
 [xataface]: http://www.xataface.com/
