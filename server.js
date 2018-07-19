@@ -1,6 +1,17 @@
+/** server -- OAuth / RChain gateway server
+
+goals:
+https://medium.com/@orels1/using-discord-oauth2-a-simple-guide-and-an-example-nodejs-app-71a9e032770
+https://grpc.io/docs/tutorials/basic/node.html
+
+@flow
+*/
+
 const Capper = require('Capper');
 const docopt = require('docopt').docopt;
+
 const capper_start = require('./capper_start');
+const gateway = require('./gateway/server/main');
 
 // ISSUE: indirect to SecretService for CLIENT_SECRET?
 
@@ -29,7 +40,7 @@ function main(argv, {fs, path, crypto, https, express}) {
     const cli = docopt(usage, { argv: argv.slice(2) });
     // console.log('DEBUG: cli:', cli);
 
-    const apps = Object.freeze({ gateway: { client: gateway_client } });
+    const apps = Object.freeze({ gateway: gateway.makeGateway() });
     const reviver = capper_start.makeReviver(apps);
 
     const dbfile = Capper.fsSyncAccess(fs, path.join, cli['--db']);
@@ -46,17 +57,6 @@ function main(argv, {fs, path, crypto, https, express}) {
 	    console.log('server started...');
 	}
     });
-}
-
-
-function gateway_client(context) {
-    const mem = context.state;
-    function init(id, secret) {
-	mem['id'] = id;
-	mem['secret'] = secret;
-    }
-
-    return Object.freeze({ init });
 }
 
 
