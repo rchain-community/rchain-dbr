@@ -82,7 +82,6 @@ all:
     db_password: ...
 
     # Github token for fetching issues, uses
-    # TODO: document setup
     github_repo_token: ...
 
     # Github authentication shared secret
@@ -93,7 +92,7 @@ all:
     # Discord authentication, authorization
     # TODO: document setup
     discord_coop_role: member
-    discord_redirect_uri: FIXME
+    discord_redirect_uri: https://{{ domain }}/index.php?discord_oauth_callback=true"
     rchain_guild_id: ...
     discord_client_id: ...
     discord_client_secret: ...
@@ -103,8 +102,18 @@ all:
 You may need to set other ansible vars such as
 `ansible_python_interpreter: /usr/local/bin/python2`.
 
-When creating your github OAuth app, the callback URL should
-correspond to `github_auth_callback.php`.
+### Github authentication
+
+The `gh_client_id` and `gh_client_secret` come from [registering your
+github
+app](https://developer.github.com/v3/guides/basics-of-authentication/#registering-your-app).
+
+The callback URL should correspond to `github_auth_callback.php`;
+e.g. `https://rewards.rchain.coop/github_auth_callback.php` or
+e.g. `https://rewards-test.rhobot.net/github_auth_callback.php`.
+
+
+### nginx, python, and systemd sockets
 
 As shown in `dbr_aux.service` and `deploy_tasks/nginx_site.yml`, the
 python code runs as a systemd service called `dbr_aux`; `nginx`

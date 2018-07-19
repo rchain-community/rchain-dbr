@@ -52,6 +52,7 @@ enabled = 1
 read_token = {{ github_repo_token }}
 
 [github_oauth]
+# See https://developer.github.com/v3/guides/basics-of-authentication/#registering-your-app
 github_app_client_id = {{ gh_client_id }}
 github_app_client_secret = {{ gh_client_secret }}
 github_api_url = https://github.com/login/oauth/access_token
