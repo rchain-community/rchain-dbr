@@ -12,3 +12,6 @@ playbook.retry
 templates_c/
 vendor/
 xataface-2.1.3/
+node_modules/
+/capper.config
+/capper.db
