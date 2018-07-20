@@ -40,15 +40,15 @@ function main(argv, {fs, path, crypto, https, express}) {
     const cli = docopt(usage, { argv: argv.slice(2) });
     // console.log('DEBUG: cli:', cli);
 
-    const apps = Object.freeze({ gateway: gateway.makeGateway() });
-    const reviver = capper_start.makeReviver(apps);
-
     const dbfile = Capper.fsSyncAccess(fs, path.join, cli['--db']);
-    const saver = Capper.makeSaver(unique, dbfile, reviver.toMaker);
-
     const rd = arg => Capper.fsReadAccess(fs, path.join, cli[arg]);
 
     Capper.makeConfig(rd('--conf')).then(config => {
+	const gw = gateway.makeGateway(app, passport, config.domain);
+	const apps = Object.freeze({ gateway: gw });
+	const reviver = capper_start.makeReviver(apps);
+	const saver = Capper.makeSaver(unique, dbfile, reviver.toMaker);
+
         if (capper_start.command(cli, config, saver)) {
             return;
         } else {
