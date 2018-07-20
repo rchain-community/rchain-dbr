@@ -34,7 +34,7 @@ Options:
 
 `;
 
-function main(argv, {fs, path, crypto, https, express}) {
+function main(argv, {fs, path, crypto, https, express, passport}) {
     const unique = Capper.caplib.makeUnique(crypto.randomBytes);
 
     const cli = docopt(usage, { argv: argv.slice(2) });
@@ -44,16 +44,18 @@ function main(argv, {fs, path, crypto, https, express}) {
     const rd = arg => Capper.fsReadAccess(fs, path.join, cli[arg]);
 
     Capper.makeConfig(rd('--conf')).then(config => {
-	const gw = gateway.makeGateway(app, passport, config.domain);
-	const apps = Object.freeze({ gateway: gw });
-	const reviver = capper_start.makeReviver(apps);
-	const saver = Capper.makeSaver(unique, dbfile, reviver.toMaker);
+	const app = express(),
+	      expressWrap = () => app;
+	const gw = gateway.makeGateway(app, passport, config.domain),
+	      apps = Object.freeze({ gateway: gw }),
+	      reviver = capper_start.makeReviver(apps),
+	      saver = Capper.makeSaver(unique, dbfile, reviver.toMaker);
 
         if (capper_start.command(cli, config, saver)) {
             return;
         } else {
 	    Capper.run(argv, config, reviver, saver,
-		       rd('--ssl'), https.createServer, express);
+		       rd('--ssl'), https.createServer, expressWrap);
 	    console.log('server started...');
 	}
     });
@@ -69,5 +71,6 @@ if (require.main == module) {
 	     crypto: require('crypto'),
              https: require('https'),
              express: require('express'),
+             passport: require('passport'),
 	 });
 }

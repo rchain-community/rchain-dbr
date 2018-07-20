@@ -22,9 +22,16 @@ input {
 
   <fieldset>
     <legend>New OAuth2 Client</legend>
-    <label><b>Label:</b> <input id="label" /></label>
-    <label><b>Client Id:</b> <input id="client_id" /></label>
-    <label><b>Client Secret:</b> <input id="client_secret" /></label>
+    <label><b>Strategy:</b>
+      <select id="strategy">
+	<option>github</option>
+	<option>discord</option>
+      </select>
+    </label>
+    <label><b>Path:</b> <input id="path" /></label>
+    <label><b>Callback Path:</b> <input id="callbackPath" /></label>
+    <label><b>Client Id:</b> <input id="clientID" /></label>
+    <label><b>Client Secret:</b> <input id="clientSecret" /></label>
     <br clear="all" />
     <div><label><b><button id="makeClient">Create</button></b></label></div>
   </fieldset>
