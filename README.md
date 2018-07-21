@@ -19,7 +19,7 @@ See [Usable Web app prototype for RAM distributed budgeting and reward
 system #260](https://github.com/rchain/bounties/issues/260)
 
 
-## Design notes: powered by xataface, PHP, python, and mysql
+## Design notes: toward node.js and RChain from LAMP
 
 see CONTRIBUTING.md
 
