@@ -41,7 +41,7 @@ See `social_coding_sync.py`.
 To put certifications such as "I (dckc) certify Bob at journeyer
 level" on RChain, `package.json` and `server.js` and such are the
 start of a node.js/Express web UI that integrates with RChain nodes
-via the [CasperMessage.proto][] gRPC protocol.
+via the [CasperMessage.proto][cp] gRPC protocol.
 
 As in the PHP code, we use OAuth2 to authenticate discord and github
 users and we (aim to) use the **member** discord role to verify RChain coop
