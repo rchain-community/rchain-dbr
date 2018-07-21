@@ -1,10 +1,9 @@
-/** server -- OAuth / RChain gateway server
+/** server -- RChain / OAuth gateway
 
-goals:
-https://medium.com/@orels1/using-discord-oauth2-a-simple-guide-and-an-example-nodejs-app-71a9e032770
-https://grpc.io/docs/tutorials/basic/node.html
+See also: CONTRIBUTING.md design notes on Capper and webkeys
+as well as object capability discipline.
 
-@flow
+ISSUE: add @flow static types
 */
 
 const Capper = require('Capper');
@@ -13,9 +12,12 @@ const docopt = require('docopt').docopt;
 const capper_start = require('./capper_start');
 const gateway = require('./gateway/server/main');
 
-// ISSUE: indirect to SecretService for CLIENT_SECRET?
-
 const usage = `
+Start with "make gateway.gateway" to generate (and save) your initial
+webkey, and a key pair for use on RChain.
+
+Then visit that webkey URL in your browser to configure the rest.
+
 Usage:
   server.js [options] make REVIVER [ARG...]
   server.js [options] post WEBKEY METHOD [ARG...]
@@ -23,15 +25,19 @@ Usage:
   server.js [options]
 
 Options:
- REVIVER                app reviver; e.g.
-                        gateway.client ID SECRET
+ REVIVER                app reviver; e.g. gateway.gateway
+ --conf FILE            specification of protocol (http / https), domain, and
+                        port of this service, in JSON.
+                        [default: capper.config]
+ --ssl DIR              where to find SSL server.key, server.crt, ca.crt
+                        if protocol is https
+                        [default: ./ssl]
  --db FILE              persistent object storage
                         [default: capper.db]
- --conf FILE            config file [default: capper.config]
- --ssl DIR              SSL server.crt server.key dir
-                        [default: ./ssl]
  -h --help              show usage
 
+ISSUE: add option to list all REVIVERs?
+ISSUE: help on each REVIVER?
 `;
 
 function main(argv, {fs, path, crypto, https, express, passport}) {
@@ -46,8 +52,9 @@ function main(argv, {fs, path, crypto, https, express, passport}) {
     Capper.makeConfig(rd('--conf')).then(config => {
 	const app = express(),
 	      expressWrap = () => app;
-	const gw = gateway.makeGateway(app, passport, config.domain),
-	      apps = Object.freeze({ gateway: gw }),
+	const apps = Object.freeze({
+		  gateway: gateway.makeGateway(app, passport, config.domain),
+	      }),
 	      reviver = capper_start.makeReviver(apps),
 	      saver = Capper.makeSaver(unique, dbfile, reviver.toMaker);
 
@@ -63,14 +70,29 @@ function main(argv, {fs, path, crypto, https, express, passport}) {
 
 
 if (require.main == module) {
-    // Access ambient stuff only when invoked as main module.
+    // Import primitive effects only when invoked as main module.
+    //
+    // See Object capability discipline design note in
+    // CONTRIBUTING.md.
     main(process.argv,
          {
+	     // Opening a file based on filename is a primitive effect.
 	     fs: require('fs'),
+	     // path.join is platform-specific and hence a primitive effect.
 	     path: require('path'),
+	     // Random number generation is primitive (typically implemented
+	     // as access to a special file, /dev/urandom).
 	     crypto: require('crypto'),
+	     // If node's https module followed ocap discipline, it would
+	     // have us pass in capabilities to make TCP connections.
+	     // But it doesn't, so we treat it as primitive.
              https: require('https'),
+	     // If express followed ocap discipine, we would pass it
+	     // access to files and the network and such.
              express: require('express'),
+	     // The top-level passport strategy registry seems to be
+	     // global mutable state.
+	     // ISSUE: use passport constructors to avoid global mutable state?
              passport: require('passport'),
 	 });
 }

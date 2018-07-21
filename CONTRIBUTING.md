@@ -45,7 +45,8 @@ via the [CasperMessage.proto][cp] gRPC protocol.
 
 As in the PHP code, we use OAuth2 to authenticate discord and github
 users and we (aim to) use the **member** discord role to verify RChain coop
-membership.
+membership. A May 2017 [simple guide to discord oauth2][orlov] shows that this
+is a well-trodden path.
 
 Then we (aim to) represent votes as rholang terms such as `["dckc",
 "bob", 2, "deadbeef"]` where 2 is journeyer level and "deadbeef" is a
@@ -63,3 +64,37 @@ node.js/Express applications with [webkeys][].
 [gbd]: https://www.youtube.com/watch?v=WzAdfjwgaQs#t=9m28s
 [Capper]: https://github.com/dckc/Capper
 [webkeys]: http://waterken.sourceforge.net/web-key/
+[orlov]: https://medium.com/@orels1/using-discord-oauth2-a-simple-guide-and-an-example-nodejs-app-71a9e032770
+
+
+## Object capability discipline
+
+In order to supporting robust composition and cooperation without
+vulnerability, all JavaScript and python code in this project should
+adhere to [object capability discipline][ocap]. (_This discipline is
+built-in to Rholang. As to PHP, abandon hope all ye who enter._)
+
+  - **Memory safety and encapsulation**
+    - There is no way to get a reference to an object except by
+      creating one or being given one at creation or via a message; no
+      casting integers to pointers, for example. _JavaScript is safe
+      in this way._
+
+      From outside an object, there is no way to access the internal
+      state of the object without the object's consent (where consent
+      is expressed by responding to messages). _We use `Object.freeze`
+      and closures rather than properties on `this` to achieve this.
+	  In python, we're experimenting with conventions._
+
+  - **Primitive effects only via references**
+    - The only way an object can affect the world outside itself is
+      via references to other objects. All primitives for interacting
+      with the external world are embodied by primitive objects and
+      **anything globally accessible is immutable data**. There may be
+      no `open(filename)` function in the global namespace, nor may
+      such a function be imported. _It takes some discipline to use
+      modules in node.js and python in this way.  We use a convention
+      of only accessing ambient authority inside `if (require.main ==
+      module) { ... }`._
+
+[ocap]: http://erights.org/elib/capability/ode/ode-capabilities.html
