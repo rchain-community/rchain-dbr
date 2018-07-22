@@ -67,7 +67,7 @@ node.js/Express applications with [webkeys][].
 [orlov]: https://medium.com/@orels1/using-discord-oauth2-a-simple-guide-and-an-example-nodejs-app-71a9e032770
 
 
-## Object capability discipline
+## Object capability (ocap) discipline
 
 In order to supporting robust composition and cooperation without
 vulnerability, all JavaScript and python code in this project should
@@ -90,11 +90,15 @@ built-in to Rholang. As to PHP, abandon hope all ye who enter._)
     - The only way an object can affect the world outside itself is
       via references to other objects. All primitives for interacting
       with the external world are embodied by primitive objects and
-      **anything globally accessible is immutable data**. There may be
+      **anything globally accessible is immutable data**. There must be
       no `open(filename)` function in the global namespace, nor may
       such a function be imported. _It takes some discipline to use
       modules in node.js and python in this way.  We use a convention
       of only accessing ambient authority inside `if (require.main ==
       module) { ... }`._
+
+ISSUE: gloss powerful reference, ambient authority
+
+ISSUE: note integration testing idioms
 
 [ocap]: http://erights.org/elib/capability/ode/ode-capabilities.html

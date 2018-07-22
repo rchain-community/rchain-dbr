@@ -1,7 +1,7 @@
 /** server -- RChain / OAuth gateway
 
 See also: CONTRIBUTING.md design notes on Capper and webkeys
-as well as object capability discipline.
+as well as ocap discipline.
 
 ISSUE: add @flow static types
 */
