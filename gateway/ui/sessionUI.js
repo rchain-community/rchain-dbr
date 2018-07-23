@@ -12,7 +12,7 @@ function sessionUI(session, clock, $) {
 
     const sessionInfo = Bacon.fromPromise(session.info());
     sessionInfo.onValue(si => {
-	const user = si.user,
+	const user = si.userProfile,
 	      dob = user.detail.createdAt,
 	      accountDetail = `${user.username} since ${dob.getFullYear()}-${dob.getMonth() + 1}`;
 	ui.user.text(user.displayName)
@@ -41,7 +41,7 @@ function sessionUI(session, clock, $) {
     const certifyRecord = certifyStart
 	      .zip(sessionInfo)
 	      .map(([_e, si]) => ({
-		  voter: si.user.username,
+		  voter: si.userProfile.username,
 		  subject: ui.subject.val(),
 		  rating: ui.rating.val(),
 		  cert_time: clock()
@@ -96,7 +96,7 @@ function mockSession({ clock }) {
 	const min = 1000 * 60;
 	return Promise.resolve({
 	    created: new Date(clock().valueOf() - 15 * min),
-	    user: {
+	    userProfile: {
 		username: "dckc", displayName: "Dan Connolly",
 		url: 'https://github.com/dckc',
 		detail: {
