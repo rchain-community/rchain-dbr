@@ -15,9 +15,16 @@ license: GPL 2 (inherited from xataface)
 
 ## Features and use cases
 
-See [Usable Web app prototype for RAM distributed budgeting and reward
-system #260](https://github.com/rchain/bounties/issues/260)
+See
 
+  - [Getting Involved in the RChain Bounty Program][p1804]  
+    presented Spring 2018 at the RChain Developer Conference in Boulder, CO
+	- [video](https://www.youtube.com/watch?v=HsQTDNEIbjs&t=1s)
+  - [Usable Web app prototype for RAM distributed budgeting and reward
+system #260][260]
+
+[p1804]: https://docs.google.com/presentation/d/1B2Vu8o3ACwruY6HY1ayXRQ4qkNKsMy4hdbOdxrCHI2o/edit#slide=id.p
+[260]: https://github.com/rchain/bounties/issues/260
 
 ## Design notes: toward node.js and RChain from LAMP
 
