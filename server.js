@@ -38,9 +38,10 @@ Options:
                         [default: ./ssl]
  --db FILE              persistent object storage
                         [default: capper.db]
- --grpc-host            Where to contact rnode gRPC service [default: localhost]
- --grpc-port            Where to contact rnode gRPC service [default: 50000]
- --proto                Where to find CasperMessage.proto [default: rnode_proto]
+ --grpc-host NAME       Where to contact rnode gRPC service [default: localhost]
+ --grpc-port NUM        Where to contact rnode gRPC service [default: 50000]
+ --proto DIR            Where to find CasperMessage.proto
+                        [default: gateway/server/rnode_proto]
  -h --help              show usage
 
 ISSUE: add option to list all REVIVERs?
@@ -71,13 +72,13 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, random_
 	    keyChain: keyPair.appFactory({ random_keyPair }),
 	    rnode: rnodeAPI.appFactory(cli['--proto'] + '/CasperMessage.proto',
 				       {
-					   grpc,
+					   grpc, clock,
 					   endPoint: {
 					       host: cli['--grpc-host'],
 					       port: parseInt(cli['--grpc-port'])
 					   }
 				       }),
-	    game: gameSession.appFactory('gateway', { clock })
+	    game: gameSession.appFactory('game', { clock })
 	});
 
 	const reviver = capper_start.makeReviver(apps),
@@ -128,7 +129,7 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, random_
 	function sturdyPath(obj) {
 	    const webKey = sturdy.idToWebkey(saver.asId(obj));
 	    // ISSUE: double-check waterken / Capper docs on # -> ?
-	    return webKey.substring(config.domain.length).replace('#', '?');
+	    return '/' + webKey.substring(config.domain.length).replace('#', '?');
 	}
     }).done();
 }

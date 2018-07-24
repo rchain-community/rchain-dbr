@@ -4,7 +4,7 @@
     <title>
       RChain Community Trust Metric
     </title>
-    <link rel="stylesheet" href="formTidy.css" />
+    <link rel="stylesheet" href="/apps/gateway/ui/formTidy.css" />
   </head>
   <body>
     <div align="right" id="greeting">
@@ -36,7 +36,7 @@
 	<br clear="all" />
 	<div><label><b><button id="certify">Save</button></b></label></div>
 	<br clear="all" />
-	<label><b>Result key:</b> <input id="resultKey" readonly /></label>
+	<label><b>Result:</b> <textarea id="result" readonly rows="15" cols="50" ></textarea></label>
       </fieldset>
     </div>
 
@@ -49,10 +49,10 @@
 
     <script type="text/javascript" src="/views/libs/q.js"></script>
     <script src="/views/libs/capperConnect.js"></script>
-    <script src="/apps/gateway/ui/sessionUI.js"></script>
+    <script src="/apps/game/ui/sessionUI.js"></script>
 
     <script async>
-      $('#resultKey').parent().hide();
+      $('#result').parent().hide();
       $(document).ready(() => {
         const clock = () => new Date();
         // sessionUI(mockSession({ clock }), clock, $);

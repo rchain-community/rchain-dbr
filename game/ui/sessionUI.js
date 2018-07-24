@@ -6,20 +6,22 @@ function sessionUI(session, clock, $) {
 	subject: $('#subject'),
 	rating: $('#rating'),
 	certify: $('#certify'),
-	resultKey: $('#resultKey'),
-	resultKeyField: $('#resultKey').parent(),
+	result: $('#result'),
+	resultField: $('#result').parent(),
     };
 
-    const sessionInfo = Bacon.fromPromise(session.info());
+    const sessionInfo = Bacon.fromPromise(session.post('info'));
     sessionInfo.onValue(si => {
 	const user = si.userProfile,
-	      dob = user.detail.createdAt,
-	      accountDetail = `${user.username} since ${dob.getFullYear()}-${dob.getMonth() + 1}`;
+	      dob_str = user.detail.created_at,
+	      dob = dob_str ? new Date(dob_str) : null,
+	      since = dob ? ` since ${dob.getFullYear()}-${dob.getMonth() + 1}` : null,
+	      accountDetail = user.username + since;
 	ui.user.text(user.displayName)
 	    .attr('title', accountDetail)
 	    .attr('href', user.url);
 
-	ui.session.text(`login: ${ si.created.toISOString() }`);
+	ui.session.text(`login: ${ new Date(si.created).toISOString() }`);
 
 	showCertTime(clock());
     });
@@ -28,7 +30,7 @@ function sessionUI(session, clock, $) {
 	ui.cert_time.val(t.toISOString().substring(0, "yyyy-MM-ddThh:mm".length));
     }
 
-    session.select('users').then(peers => {
+    Bacon.fromPromise(session.post('select', 'users')).onValue(peers => {
 	ui.subject.html('');
 	peers.forEach(who => ui.subject.append(
 	    $('<option>', { value: who.username,
@@ -50,21 +52,21 @@ function sessionUI(session, clock, $) {
 	showCertTime(record.cert_time);
     });
     const certifySend = certifyRecord
-	      .flatMap(record => Bacon.fromPromise(session.merge('trust_cert', record)));
+	      .flatMap(record => Bacon.fromPromise(session.post('merge', 'trust_cert', record)));
     const certifyReply = certifySend.merge(certifySend.mapError(err => null)).log('reply');
     certifyStart.awaiting(certifyReply).log('awaiting@@')
 	.onValue(loading => {
 	ui.certify.attr('disabled', loading);
 
 	if (loading) {
-	    ui.resultKeyField.hide();
+	    ui.resultField.hide();
 	}
     });
 
     // ISSUE: certifyReply.onError(err => ...)
     certifyReply.onValue(k => {
-	ui.resultKey.val(JSON.stringify(k));
-	ui.resultKeyField.show();
+	ui.result.val(JSON.stringify(k, null, 2));
+	ui.resultField.show();
     });
 }
 

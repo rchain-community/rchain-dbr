@@ -1,15 +1,23 @@
 // import Bacon from 'baconjs';
 
-function gatewayUI(gateway, $) {
-    console.log(gateway);
+function gameUI(gameBoard, $) {
+    console.log(gameBoard);
     const ui = {
 	path: $('#path'),
 	callbackPath: $('#callbackPath'),
 	strategy: $('#strategy'),
 	id: $('#clientID'),
-	secret: $('#clientSecret')
+	secret: $('#clientSecret'),
+	makeSignIn: $('#makeSignIn')
     };
-    $('#makeClient').asEventStream('click').log('click')
+
+    Bacon.fromPromise(gameBoard.post('label'))
+	.onValue(label => {
+	    $('title').text(label + 'on RChain');
+	    $('h1').text(label);
+	});
+
+    ui.makeSignIn.asEventStream('click').log('click')
 	.map(_ => ({
 	    path: ui.path.val(),
 	    callbackPath: ui.callbackPath.val(),
@@ -17,12 +25,12 @@ function gatewayUI(gateway, $) {
 	    id: ui.id.val(),
 	    secret: ui.secret.val()
 	})).log('fields')
-	.flatMap(fields => Bacon.fromPromise(gateway.post(
-	    'makeClient',
+	.flatMap(fields => Bacon.fromPromise(gameBoard.post(
+	    'makeSignIn',
 	    fields.path, fields.callbackPath, fields.strategy,
 	    fields.id, fields.secret))
 		 .log('makeClient')
-		 .zip(Bacon.once(fields), (c, f) => [c, f])).log('flatMap |> zip')
+		 .zip(Bacon.once(fields), (c, f) => [c, f])).log('@@flatMap |> zip')
 	.onValue(addClient);
 
     function addClient([it, {path, strategy, id}]) {

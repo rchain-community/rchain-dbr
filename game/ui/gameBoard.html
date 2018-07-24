@@ -35,7 +35,7 @@ fieldset.tidy input {
     <label><b>Client Id:</b> <input id="clientID" /></label>
     <label><b>Client Secret:</b> <input id="clientSecret" type="password" /></label>
     <br clear="all" />
-    <div><label><b><button id="makeClient">Create</button></b></label></div>
+    <div><label><b><button id="makeSignIn">Create</button></b></label></div>
   </fieldset>
 
   <h2>Clients</h2>
@@ -58,11 +58,11 @@ fieldset.tidy input {
 
   <script type="text/javascript" src="/views/libs/q.js"></script>
   <script src="/views/libs/capperConnect.js"></script>
-  <script src="/apps/gateway/ui/gatewayUI.js"></script>
+  <script src="/apps/game/ui/gameUI.js"></script>
 
   <script async>
     $(document).ready(() => {
-        gatewayUI(CapperConnect.home, $);
+        gameUI(CapperConnect.home, $);
     });
   </script>
 </body>
