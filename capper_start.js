@@ -1,9 +1,18 @@
+/** capper_start
+ *
+ * ISSUE: this belongs in the capper library.
+ */
 const Capper = require('Capper');
 
 
 exports.command = command;
-function command(cli, config, saver) {
-    const sturdy = Capper.makeSturdy(saver, config.domain);
+/**
+ * Handle make / drop / post commands.
+ *
+ * @return true if cli command was handled; false if there was no
+ *         command, which indicates the server should be started.
+ */
+function command(cli, config, saver, sturdy) {
     const parseArg = Capper.caplib.makeParseArg(sturdy.wkeyStringToLive);
 
     if (cli["drop"]) {

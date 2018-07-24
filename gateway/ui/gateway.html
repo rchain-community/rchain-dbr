@@ -1,16 +1,18 @@
 <!doctype html>
+<html>
 <head>
   <title>RChain / OAuth Gateway</title>
   <style>
     /* ack: https://stackoverflow.com/a/10868749 */
-label b {
+    /* ISSUE: move to .css file */
+fieldset.tidy label b {
     display: inline-block;
     float: left;
     clear: left;
     width: 10em;
     text-align: right;
 }
-input {
+fieldset.tidy input {
   display: inline-block;
   float: left;
     }
@@ -20,7 +22,7 @@ input {
 <body>
   <h1>RChain / OAuth Gateway</h1>
 
-  <fieldset>
+  <fieldset class="tidy">
     <legend>New OAuth2 Client</legend>
     <label><b>Strategy:</b>
       <select id="strategy">
