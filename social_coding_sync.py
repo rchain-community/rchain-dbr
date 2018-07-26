@@ -205,7 +205,7 @@ class WSGI_App(object):
         mb = 1024 * 1024
         size_mb = round(dest.stat().st_size * 1.0 / mb, 2)
         start_response('200 ok', HTML8)
-        return [('<p>db dump result: <a href="%s">%s</a> %s Mb</p>' %
+        return [('<p>db dump result: <a href="/%s">%s</a> %s Mb</p>' %
                  (dest, dest.name, size_mb)).encode('utf-8')]
 
     def cert_recalc(self, start_response, params):
