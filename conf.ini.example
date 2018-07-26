@@ -23,7 +23,7 @@ password={{ db_password }}
 driver=mysqli
 
 ;; sqlalchemy
-db_url=mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(name)s?charset=utf8
+db_url="mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(name)s?charset=utf8"
 
 [_tables]
 ;; This section lists the tables to include in your application menu
