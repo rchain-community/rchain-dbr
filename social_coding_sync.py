@@ -10,6 +10,7 @@ Usage:
   social_coding_sync [options] trust_unseed
   social_coding_sync [options] trusted
   social_coding_sync [options] trust_view
+  social_coding_sync [options] db_bak
 
 Options:
   --config=FILE     config file with github_repo.read_token
@@ -22,6 +23,7 @@ Options:
   --view=FILE       filename for social network visualization
                     [default: ,states.js]
   --cache=DIR       directory for query results [default: cache]
+  --bak-dir=DIR     directory for database dumps [default: bak]
   --voter=NAME      test voter for logging [default: dckc]
 
 .. note: This line separates usage notes above from design notes below.
@@ -41,10 +43,13 @@ Options:
 
 from cgi import parse_qs, escape
 from configparser import SafeConfigParser
+from datetime import timedelta
 from io import BytesIO, StringIO
 from math import ceil
+from shutil import copyfileobj
 from string import Template
 from urllib.request import Request
+import gzip
 import json
 import logging
 
@@ -63,7 +68,7 @@ HTML8 = [('Content-Type', 'text/html; charset=utf-8')]
 JSON = [('Content-Type', 'application/json')]
 
 
-def main(argv, cwd, build_opener, create_engine):
+def main(argv, cwd, now, run, build_opener, create_engine):
     log.debug('argv: %s', argv)
     opt = docopt(USAGE, argv=argv[1:])
     log.debug('opt: %s', opt)
@@ -120,6 +125,10 @@ def main(argv, cwd, build_opener, create_engine):
         with (cwd / opt['--view']).open('w') as fp:
             json.dump(states, fp, indent=2)
 
+    elif opt['db_bak']:
+        with io.bak_file(now, cwd / opt['--bak-dir']) as dest:
+            io.db_bak(run, dest)
+
 
 class WSGI_App(object):
     template = '''
@@ -137,10 +146,18 @@ class WSGI_App(object):
         <form action='trust_cert' method='post'>
         <input type='submit' value='Update Trust Ratings' />
         </form>
+        <h2>Database Dump</h2>
+        <p><em>Allow 30 seconds or so for a response.</em></p>
+        <p><strong>Dumps may be pruned after 15 minutes.</strong></p>
+        <form action='db_dump' method='post'>
+        <input type='submit' value='Dump DB' />
+        </form>
         '''
 
-    def __init__(self, create_engine, build_opener, config_path):
-        self.__io = IO(create_engine, build_opener, config_path)
+    def __init__(self, config_path, now, run, build_opener, create_engine):
+        io = IO(create_engine, build_opener, config_path)
+        self.__io = io
+        self.__db_bak = lambda: io.db_bak(now, run)
 
     def __call__(self, environ, start_response):
         [path, method] = [environ.get(n)
@@ -163,6 +180,8 @@ class WSGI_App(object):
             elif path == '/trust_cert':
                 params = self._post_params(environ)
                 return self.cert_recalc(start_response, params)
+            elif path == '/db_dump':
+                return self.db_dump(start_response)
         start_response('404 not found', PLAIN)
         return [('cannot find %r' % path).encode('utf-8')]
 
@@ -175,6 +194,12 @@ class WSGI_App(object):
         data = cls(io.opener(), io.tok()).sync_data(io.db())
         start_response('200 ok', PLAIN)
         return [('%d records' % len(data)).encode('utf-8')]
+
+    def db_dump(self, start_response):
+        dest = self.__db_bak()
+        start_response('200 ok', PLAIN)
+        return [('<p>db dump result: <a href="%s">%s</a></p>' %
+                 (dest, dest.name)).encode('utf-8')]
 
     def cert_recalc(self, start_response, params):
         seed, good_nodes = TrustCert.doc_params()
@@ -228,6 +253,49 @@ class IO(object):
         url = self._cp.get('_database', 'db_url')
         url = url.strip('"')  # PHP needs ""s for %(interp)s
         return self.__create_engine(url)
+
+    def bak_file(self, now, storage):
+        if not storage.exists():
+            storage.mkdir()
+        t = now()
+        self._prune(storage, t)
+        return (storage / str(t)).with_suffix('.sql')
+
+    @classmethod
+    def _prune(self, storage, t,
+               threshold=15):
+        cutoff = t - timedelta(seconds=threshold * 60)
+        for old_dump in storage.glob('*.sql'):
+            if old_dump.name < str(cutoff):
+                log.info('removing dump older than %s: %s', cutoff, old_dump)
+                old_dump.unlink()
+
+    mysqldump = 'mysqldump'
+
+    def db_bak(self, run, dest):
+        url = sqla.engine.url.make_url(self._cp.get('_database', 'db_url'))
+        if dest.exists():
+            raise IOError('backup destination exists: %s' % dest)
+
+        # Tell mysqldump to get password from config file:
+        # https://stackoverflow.com/a/6861458
+        # http://dev.mysql.com/doc/refman/5.1/en/password-security-user.html
+        default_password = '--defaults-file=%s' % self.__config_path.resolve()
+
+        cmd = [self.mysqldump, default_password,
+               '--host=%s' % url.host, '--port=%s' % url.port, '--compress',
+               '--user=%s' % url.username, '-r', str(dest), url.database]
+        log.info('backing up %s to: %s', url.database, dest)
+        log.debug('%s', cmd)
+        run(cmd, input=url.password.encode('utf-8'))
+
+        dest_gz = dest.with_suffix('.sql.gz')
+        log.info('compressing to %s', dest_gz)
+        with dest.open('rb') as f_in:
+            with gzip.GzipFile(fileobj=dest_gz.open('wb'), mode='wb') as f_out:
+                copyfileobj(f_in, f_out)
+        dest.unlink()
+        return dest_gz
 
     def tok(self):
         return self._cp.get('github_repo', 'read_token')
@@ -728,13 +796,16 @@ class MockResponse(BytesIO):
 
 if __name__ == '__main__':
     def _script():
+        from datetime import datetime
+        from pathlib import Path
+        from subprocess import run
         from sys import argv
         from urllib.request import build_opener
-        from pathlib import Path
+
         from sqlalchemy import create_engine
 
         logging.basicConfig(level=logging.INFO)
-        main(argv, cwd=Path('.'),
+        main(argv, cwd=Path('.'), run=run, now=datetime.now,
              build_opener=build_opener,
              create_engine=create_engine)
 
