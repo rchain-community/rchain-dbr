@@ -157,7 +157,12 @@ class WSGI_App(object):
     def __init__(self, config_path, now, run, build_opener, create_engine):
         io = IO(create_engine, build_opener, config_path)
         self.__io = io
-        self.__db_bak = lambda: io.db_bak(now, run)
+
+        def db_bak():
+            with io.bak_file(now, config_path.parent / 'bak') as dest:
+                return io.db_bak(run, dest)
+
+        self.__db_bak = db_bak
 
     def __call__(self, environ, start_response):
         [path, method] = [environ.get(n)
@@ -197,9 +202,11 @@ class WSGI_App(object):
 
     def db_dump(self, start_response):
         dest = self.__db_bak()
-        start_response('200 ok', PLAIN)
-        return [('<p>db dump result: <a href="%s">%s</a></p>' %
-                 (dest, dest.name)).encode('utf-8')]
+        mb = 1024 * 1024
+        size_mb = round(dest.stat().st_size * 1.0 / mb, 2)
+        start_response('200 ok', HTML8)
+        return [('<p>db dump result: <a href="%s">%s</a> %s Mb</p>' %
+                 (dest, dest.name, size_mb)).encode('utf-8')]
 
     def cert_recalc(self, start_response, params):
         seed, good_nodes = TrustCert.doc_params()
