@@ -280,7 +280,7 @@ class IO(object):
     mysqldump = 'mysqldump'
 
     def db_bak(self, run, dest):
-        url = sqla.engine.url.make_url(self._cp.get('_database', 'db_url'))
+        url = sqla.engine.url.make_url(self._cp.get('_database', 'db_url').strip('"'))
         if dest.exists():
             raise IOError('backup destination exists: %s' % dest)
 
