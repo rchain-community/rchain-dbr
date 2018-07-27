@@ -48,7 +48,7 @@ from (
 	       , bv.issue_num, bv.pay_period, bv.amount
 	  from budget_vote bv
 	  join user_flair uf on uf.login = bv.voter
-          where uf.verified_coop is not null and uf.weight > 0
+          where uf.verified_coop is not null
 	) bv on bv.issue_num = i.num
         join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=1
 	group by bv.pay_period, i.num, i.title
@@ -133,7 +133,7 @@ from (
 	       , rv.issue_num, rv.pay_period, rv.percent, rv.worker
 	  from reward_vote rv
 	  join user_flair uf on uf.login = rv.voter
-          where uf.verified_coop is not null and uf.weight > 0
+          where uf.verified_coop is not null
 	) rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
 	group by ib.pay_period, ib.issue_num, ib.title, rv.worker
 ) ea
