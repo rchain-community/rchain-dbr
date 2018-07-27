@@ -103,7 +103,7 @@ create table reward_vote (
 ;
 
 alter table reward_vote add column slash boolean;
-
+alter table reward_vote add column weight int;
 
 create table trust_cert (
         subject varchar(64) not null,

@@ -112,17 +112,22 @@ select issue_num, title
      , pay_period, labels
 from (
 	select ib.pay_period, ib.issue_num, ib.title, ib.labels, rv.worker
-	     , count(distinct uf.verified_coop) voter_qty
-	     , group_concat(uf.sig separator ', ') voters
+	     , count(distinct verified_coop) voter_qty
+	     , group_concat(sig separator ', ') voters
              , ib.budget_provisional
              , ib.budget_usd
-	     , round(sum(rv.percent * uf.weight) / sum(uf.weight), 2) percent_avg
-	     , round(sum(rv.percent * uf.weight) / sum(uf.weight) / 100 * ib.budget_provisional) reward_provisional
-	     , round(sum(rv.percent * uf.weight) / sum(uf.weight) / 100 * ib.budget_usd) reward_usd_1
+	     , round(sum(rv.percent * weight) / sum(weight), 2) percent_avg
+	     , round(sum(rv.percent * weight) / sum(weight) / 100 * ib.budget_provisional) reward_provisional
+	     , round(sum(rv.percent * weight) / sum(weight) / 100 * ib.budget_usd) reward_usd_1
 	from issue_budget_wt ib
-	join reward_vote rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
-        join user_flair uf on uf.login = rv.voter
-	where uf.verified_coop is not null and uf.weight > 0
+	join (
+	  select coalesce(rv.weight, uf.weight) weight
+	       , uf.sig, uf.verified_coop
+	       , rv.issue_num, rv.pay_period, rv.percent, rv.worker
+	  from reward_vote rv
+	  join user_flair uf on uf.login = rv.voter
+          where uf.verified_coop is not null and uf.weight > 0
+	) rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
 	group by ib.pay_period, ib.issue_num, ib.title, rv.worker
 ) ea
 ;
