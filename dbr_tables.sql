@@ -95,6 +95,7 @@ create table budget_vote (
   foreign key (voter) references github_users(login) -- fk_budget_voter
 )
 ;
+alter table budget_vote add column weight int;
 ALTER TABLE budget_vote CONVERT TO CHARACTER SET utf8;
 
 

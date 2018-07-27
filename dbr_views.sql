@@ -36,15 +36,21 @@ select issue_num, title
     , budget_provisional, voter_qty, voters, pay_period, labels
 from (
 	select bv.issue_num, i.title, i.labels
-	     , count(distinct uf.verified_coop) voter_qty
-	     , group_concat(uf.sig separator ', ') voters
-	     , round(sum(bv.amount * uf.weight) / sum(uf.weight), 2) budget_provisional
+	     , count(distinct verified_coop) voter_qty
+	     , group_concat(sig separator ', ') voters
+	     , round(sum(bv.amount * weight) / sum(weight), 2) budget_provisional
              , bv.pay_period
 	from issue i
-	    join budget_vote bv on bv.issue_num = i.num
-	    join user_flair uf on uf.login = bv.voter and uf.verified_coop is not null
-	    join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=1
-	where uf.weight > 0
+ 	join (
+	  select coalesce(bv.weight, uf.weight) weight
+	       , concat(bv.voter, '*', coalesce(bv.weight, uf.weight)) sig
+	       , uf.verified_coop
+	       , bv.issue_num, bv.pay_period, bv.amount
+	  from budget_vote bv
+	  join user_flair uf on uf.login = bv.voter
+          where uf.verified_coop is not null and uf.weight > 0
+	) bv on bv.issue_num = i.num
+        join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=1
 	group by bv.pay_period, i.num, i.title
 ) ea
 ;
@@ -122,7 +128,8 @@ from (
 	from issue_budget_wt ib
 	join (
 	  select coalesce(rv.weight, uf.weight) weight
-	       , uf.sig, uf.verified_coop
+	       , concat(rv.voter, '*', coalesce(rv.weight, uf.weight)) sig
+	       , uf.verified_coop
 	       , rv.issue_num, rv.pay_period, rv.percent, rv.worker
 	  from reward_vote rv
 	  join user_flair uf on uf.login = rv.voter
