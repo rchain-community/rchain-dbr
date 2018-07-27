@@ -26,6 +26,7 @@ CREATE TABLE `authorities` (
   `last_cert_time` datetime DEFAULT NULL,
   KEY `ix_authorities_login` (`login`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+ALTER TABLE authorities CONVERT TO CHARACTER SET utf8;
 
 create table pay_period (
         start_date date primary key,
@@ -71,7 +72,16 @@ CREATE TABLE `github_users` (
   KEY `ix_github_users_login` (`login`)
 )
 ;
+LOCK TABLES
+  github_users write,
+  budget_vote write,
+  reward_vote write;
+SET FOREIGN_KEY_CHECKS = 0;
 
+ALTER TABLE github_users CONVERT TO CHARACTER SET utf8;
+ALTER TABLE github_users set CHARACTER SET utf8;
+ALTER TABLE github_users
+  CHANGE COLUMN login login varchar(64) CHARACTER SET utf8 COLLATE utf8_general_ci;
 
 create table budget_vote (
   pay_period date not null,
@@ -85,6 +95,7 @@ create table budget_vote (
   foreign key (voter) references github_users(login) -- fk_budget_voter
 )
 ;
+ALTER TABLE budget_vote CONVERT TO CHARACTER SET utf8;
 
 
 create table reward_vote (
@@ -104,6 +115,8 @@ create table reward_vote (
 
 alter table reward_vote add column slash boolean;
 alter table reward_vote add column weight int;
+ALTER TABLE reward_vote CONVERT TO CHARACTER SET utf8;
+
 
 create table trust_cert (
         subject varchar(64) not null,
@@ -115,3 +128,5 @@ create table trust_cert (
         foreign key (subject) references github_users(login) -- fk_cert_worker
         )
     ;
+
+ALTER DATABASE xataface CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
