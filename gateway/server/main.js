@@ -12,9 +12,9 @@ const URL = require('url').URL;
 
 const discord = require('passport-discord');
 const github = require('passport-github');
+const rnodeAPI = require('rchain-api');
 
 const keyPair = require('./keyPair');
-const rnodeAPI = require('./rnodeAPI');
 
 const def = obj => Object.freeze(obj);  // cf. ocap design note
 
@@ -118,26 +118,13 @@ function trustCertTest(argv, { clock, random_keyPair, grpc }) {
 	cert_time: clock().toISOString()
     };
 
-    const gatewayKey = keyPair.appFactory({ random_keyPair }).keyPair({ state: {} });
+    const gatewayKey = keyPair.appFactory({ random_keyPair })
+	      .keyPair({ state: {} });
     gatewayKey.init('gateway 1 key');
     console.log(gatewayKey, gatewayKey.publicKey());
 
-    const rnodeApp = rnodeAPI.appFactory('rnode', {grpc, clock});
-
-    function make(reviver, ...arg) {
-	console.log('make stub:', { reviver, arg });
-	const context = { state: {} };
-	const it = rnodeApp.casperClient(context);
-	it.init(...arg);
-	return it;
-    }
-    const rnode1 = rnodeApp.rnode({ state: {}, make });
-    rnode1.init();
-    logged(rnode1, 'rnode1');
-
-    const rchain = rnode1.makeCasper(
-	__dirname + '/rnode_proto/CasperMessage.proto',
-	host, port);
+    const rchain = rnodeAPI.clientFactory({grpc, clock})
+	      .casperClient({ host, port });
 
     const certSigHex = gatewayKey.signBytesHex(rchain.toByteArray(RSON.fromData(cert1)));
     const certTerm = logged(
@@ -155,39 +142,6 @@ function trustCertTest(argv, { clock, random_keyPair, grpc }) {
     }).catch(oops => { console.log(oops); });
 }
 
-function integrationTest(argv, {express, passport}) {
-    // ISSUE: refresh = require('passport-oauth2-refresh')
-    const app = express();
-    const host = argv[2], port = parseInt(argv[3]);
-    const baseURL = `http://${host}:${port}`;
-
-    const gwApp = appFactory({app, passport, baseURL});
-    function make(reviver, ...arg) {
-	console.log('make:', { reviver, arg });
-	const context = { state: {} };
-	const it = gwApp.oauthClient(context);
-	it.init(...arg);
-	return it;
-    }
-    const gwContext = {state: {}, make};
-    const gw = gwApp.gateway(gwContext);
-    gw.init();
-
-    const clgh = gw.makeClient(
-	'/auth/github/login', '/auth/github/callback', 'github',
-	'...gh client id', '...gh secret'
-    );
-
-    const cld = gw.makeClient(
-	'/auth/discord/login', '/auth/discord/callback', 'discord',
-	'index.php?discord_oauth_callback=true',
-	'...',
-	'...');
-
-    console.log(`listening at ${baseURL}`);
-    app.listen(port);
-}
-
 
 if (require.main == module) {
     // ocap: Import powerful references only when invoked as a main module.
@@ -198,13 +152,4 @@ if (require.main == module) {
 	    clock: () => new Date(),
 	    random_keyPair: require('tweetnacl').sign.keyPair
 	});
-
-    if (0) {
-    integrationTest(process.argv,
-         {
-	     express: require('express'),
-	     // ISSUE: isolate global mutable state?
-	     passport: require('passport'),
-	 });
-    }
 }

@@ -5,7 +5,7 @@ Each game is represented by a key pair. If you are granted a session
 
  */
 
-const rnodeAPI = require('./rnodeAPI'),
+const rnodeAPI = require('rchain-api'),
       RSON = rnodeAPI.RSON, logged = rnodeAPI.logged;
 
 const def = obj => Object.freeze(obj);
@@ -31,7 +31,7 @@ const mockDB = {
 
 
 module.exports.appFactory = appFactory;
-function appFactory(parent, { clock }) {
+function appFactory(parent, { clock, rchain }) {
     return def({ gameSession, gameBoard });
 
     function gameSession(context) {
@@ -66,7 +66,6 @@ function appFactory(parent, { clock }) {
 	function init(label) {
             state = context.state;
 	    state.label = label;
-            state.rchain = context.make(`rnode.casperClient`);
             state.gameKey = context.make(`keyChain.keyPair`, `for ${label}`);
 	    state.players = {};
             // ISSUE: TODO: state.peers = ... from github
@@ -75,8 +74,7 @@ function appFactory(parent, { clock }) {
 	const self = def({
             init, select, merge, makeSignIn, sessionFor,
 	    label: () => state.label,
-            publicKey: () => state.gameKey.publicKey(),
-	    rchain: () => state.rchain
+            publicKey: () => state.gameKey.publicKey()
 	});
 	return self;
 
@@ -115,7 +113,6 @@ function appFactory(parent, { clock }) {
 		  recordKey = table.key.map(field => record[field]);
 
             const rholang = obj => RSON.stringify(RSON.fromData(obj)),
-		  rchain = state.rchain,
 		  gameKey = state.gameKey;
 
             const gameTerm = rholang(state.gameKey.publicKey()),
@@ -125,6 +122,7 @@ function appFactory(parent, { clock }) {
 		  turnSigTerm = rholang(turnSig),
 		  takeTurnTerm = `@"takeTurn"!(${gameTerm}, ${turnTerm}, ${turnSigTerm})`;
 
+	    console.log('@@deploying:', takeTurnTerm);
             return rchain.doDeploy(takeTurnTerm).then(result => {
 		console.log('doDeploy result:', result);
 		if (!result.success) {

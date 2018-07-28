@@ -8,11 +8,11 @@ ISSUE: add @flow static types
 
 const Capper = require('Capper');
 const docopt = require('docopt').docopt;
+const rnodeAPI = require('rchain-api');
 
 const capper_start = require('./capper_start');
 const gateway = require('./gateway/server/main');
 const keyPair = require('./gateway/server/keyPair');
-const rnodeAPI = require('./gateway/server/rnodeAPI');
 const gameSession = require('./gateway/server/gameSession');
 
 const usage = `
@@ -40,8 +40,6 @@ Options:
                         [default: capper.db]
  --grpc-host NAME       Where to contact rnode gRPC service [default: localhost]
  --grpc-port NUM        Where to contact rnode gRPC service [default: 50000]
- --proto DIR            Where to find CasperMessage.proto
-                        [default: gateway/server/rnode_proto]
  -h --help              show usage
 
 ISSUE: add option to list all REVIVERs?
@@ -59,6 +57,11 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, random_
 
     const dbfile = Capper.fsSyncAccess(fs, path.join, cli['--db']);
     const rd = arg => Capper.fsReadAccess(fs, path.join, cli[arg]);
+    const rnode = rnodeAPI.clientFactory({ grpc, clock }),
+          rchain = rnode.casperClient({
+	      host: cli['--grpc-host'],
+	      port: parseInt(cli['--grpc-port'])
+	  });
 
     Capper.makeConfig(rd('--conf')).then(config => {
 	let signIn;  // ISSUE: how to link to the oauthClient at start-up?
@@ -70,15 +73,7 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, random_
 					 sturdyPath,
 					 baseURL: config.domain}),
 	    keyChain: keyPair.appFactory({ random_keyPair }),
-	    rnode: rnodeAPI.appFactory(cli['--proto'] + '/CasperMessage.proto',
-				       {
-					   grpc, clock,
-					   endPoint: {
-					       host: cli['--grpc-host'],
-					       port: parseInt(cli['--grpc-port'])
-					   }
-				       }),
-	    game: gameSession.appFactory('game', { clock })
+	    game: gameSession.appFactory('game', { clock, rchain })
 	});
 
 	const reviver = capper_start.makeReviver(apps),
