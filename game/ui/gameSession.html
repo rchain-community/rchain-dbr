@@ -36,7 +36,13 @@
 	<br clear="all" />
 	<div><label><b><button id="certify">Save</button></b></label></div>
 	<br clear="all" />
-	<label><b>Result:</b> <textarea id="result" readonly rows="15" cols="50" ></textarea></label>
+	<div id="results">
+	  <label><b>Record Key:</b> <input id="recordKey" readonly size="50" /></label>
+	  <label><b>Rholang Deployed:</b>
+	    <textarea id="takeTurnTerm" readonly rows="15" cols="50" ></textarea>
+	  </label>
+	  <label><b>Signature:</b> <input id="turnSig" readonly size="80" /></label>
+	</div>
       </fieldset>
     </div>
 
@@ -52,7 +58,7 @@
     <script src="/apps/game/ui/sessionUI.js"></script>
 
     <script async>
-      $('#result').parent().hide();
+      $('#results').hide();
       $(document).ready(() => {
         const clock = () => new Date();
         // sessionUI(mockSession({ clock }), clock, $);

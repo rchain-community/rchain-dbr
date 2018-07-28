@@ -6,8 +6,10 @@ function sessionUI(session, clock, $) {
 	subject: $('#subject'),
 	rating: $('#rating'),
 	certify: $('#certify'),
-	result: $('#result'),
-	resultField: $('#result').parent(),
+	results: $('#results'),
+	recordKey: $('#recordKey'),
+	takeTurnTerm: $('#takeTurnTerm'),
+	turnSig: $('#turnSig'),
     };
 
     const sessionInfo = Bacon.fromPromise(session.post('info'));
@@ -59,14 +61,16 @@ function sessionUI(session, clock, $) {
 	ui.certify.attr('disabled', loading);
 
 	if (loading) {
-	    ui.resultField.hide();
+	    ui.results.hide();
 	}
     });
 
     // ISSUE: certifyReply.onError(err => ...)
-    certifyReply.onValue(k => {
-	ui.result.val(JSON.stringify(k, null, 2));
-	ui.resultField.show();
+    certifyReply.onValue(r => {
+	ui.recordKey.val(JSON.stringify(r.recordKey));
+	ui.takeTurnTerm.val(r.takeTurnTerm);
+	ui.turnSig.val(r.turnSig);
+	ui.results.show();
     });
 }
 
