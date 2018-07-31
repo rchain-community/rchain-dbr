@@ -1,26 +1,148 @@
-// ISSUE: takeTurn7 -> takeTurn
-contract @"takeTurn7"(@gameKey, @turn, @turnSig) = {
-  new sigCh, verifyCh in {
-    verifyCh!(@"ed25519Verify"!(
-      turn.toByteArray(),
-      turnSig.hexToBytes(),
-      // ISSUE: let deployer update gameKey
-      // ISSUE: match this key to gameKey
-      "90685cf270025cddab375b3de595e9b87548c5f05f9e5bf17502d7cfcb7259f7".hexToBytes(),
-      *sigCh))
+@"stderr"!("@@takeTurn23 contract in place.") |
+
+// ISSUE: how do we replace contracts during dev? registerGameNNN gets old.
+new game1Ch in {
+  @"registerGame23"!(
+    "makeTrustCommunity23",
+    "90685cf270025cddab375b3de595e9b87548c5f05f9e5bf17502d7cfcb7259f7".hexToBytes(),
+    *game1Ch)
+  |
+  for (game1 <- game1Ch) {
+    @"stderr"!(["@@game1:", *game1])|
+    game1!(["join", "dckc"], "stdout")
     |
-    for (doVerify <- verifyCh) {
-      *doVerify
-      |
-      for (@true <- sigCh) {
-        @"stdout"!(["@@happy!", turn])
+    game1!(["join", "a1"], "stdout")
+    |
+    game1!(["join", "b2"], "stdout")
+    |
+    game1!(["join", "c3"], "stdout")
+    |
+    game1!(["join", "d4"], "stdout")
+  }
+}
+|
+
+new gamesByKey in {
+  gamesByKey!({})
+  |
+
+  // ISSUE: if maker never returns, our gamesByKey gets stuck.
+  contract @"registerGame23"(maker, @pk, return) = {
+    @"stderr"!("@@TODO: require signature from registerGame caller to prevent clobbering.") |
+    new gameCh in {
+      for (@old <- gamesByKey) {
+        maker!(*gameCh)
+        |
+        for (@game <- gameCh) {
+          gamesByKey!(old.union({pk: game}))
+          |
+          @"stderr"!(["@@registered:", {"key": pk, "maker": *maker, "game": game}])|
+          return!(game)
+        }
       }
+    }
+  }
+
+  |
+  contract @"takeTurn23"(@gameKey, @turn, @turnSig, return) = {
+    for (@old <- gamesByKey) {
+      gamesByKey!(old)  // TODO: peek
       |
-      for (@false <- sigCh) {
-        @"stdout"!(["@@bad sig", turn, turnSig])
+      @"stderr"!(["takeTurn key lookup:", old, gameKey.hexToBytes()]) |
+      match old.get(gameKey.hexToBytes()) {
+        Nil => {
+          @"stderr"!(["@@no game registered by key:", gameKey])
+          |
+          return!(Nil) // TODO: refine error idiom(s)
+        }
+        game => {
+          new sigCh, verifyCh in {
+            // ISSUE: running the verify code through verifyCh
+            // seems odd, but this doesn't work otherwise.
+            // https://rchain.atlassian.net/browse/RHOL-564
+            verifyCh!(@"ed25519Verify"!(
+              turn.toByteArray(),
+              turnSig.hexToBytes(),
+              gameKey.hexToBytes(),
+              *sigCh))
+            |
+            for (doVerify <- verifyCh) {
+              *doVerify
+              |
+              for (@false <- sigCh) {
+                @"stderr"!(["@@bad sig", turn, turnSig, gameKey]) |
+                return!(Nil)
+              }
+              |
+              for (@true <- sigCh) {
+                @"stdout"!(["@@good sig!", turn])
+                |
+                @game!(turn, *return)
+              }
+            }
+          }
+        }
       }
     }
   }
 }
+
 |
-@"stdout"!("takeTurn7 contract in place.")
+contract @"makeTrustCommunity23"(return) = {
+  new community, byName in {
+    return!(*community)
+    |
+    byName!({})
+    |
+    for (@["merge", "trust_cert",
+      {@"cert_time"!(t) | @"rating"!(r) | @"subject"!(s) | @"voter"!(v)}], return <= community) {
+      @"stderr"!(["@@merge:", [v, s, r]]) |
+      for (@old <- byName) {
+        // @"stderr"!(["@@merge lookup name:", v, old]) |
+        byName!(old)
+        |
+        match old.get(v) {
+          Nil => { return!(Nil) }
+          vp => {
+            @"stderr"!(["@@merge vp:", v, vp]) |
+            @vp!("certify", s, r, *return)
+          }
+        }
+      }
+    }
+    |
+    // TODO: petnames
+    for (@["join", myName], return <= community) {
+      // @"stderr"!(["@@join:", myName])|
+
+      new player in {
+        @"stderr"!(["@@new player:", myName, *player]) |
+        return!(*player)
+        |
+        for (@old <- byName) {
+          @"stderr"!(["@@updated player map:", old.union({myName: *player})])|
+          byName!(old.union({myName: *player}))
+        }
+        |
+        for (@"certify", @subjectName, @level, return <= player) {
+          for (@old <- byName) {
+            byName!(old)
+            |
+            match old.get(subjectName) {
+              Nil => {
+                // ISSUE: can we leave such votes in the tuplespace until subject joins?
+                @"stderr"!(["@@certify whom???", subjectName])|
+                return!(Nil)
+              }
+              subject => {
+                @"stdout"!(["@@debug", myName, *player, "certifies", subjectName, subject, "at", level])
+                |
+                return!([myName, subjectName, level])
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
