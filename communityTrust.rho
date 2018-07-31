@@ -1,0 +1,26 @@
+// ISSUE: takeTurn7 -> takeTurn
+contract @"takeTurn7"(@gameKey, @turn, @turnSig) = {
+  new sigCh, verifyCh in {
+    verifyCh!(@"ed25519Verify"!(
+      turn.toByteArray(),
+      turnSig.hexToBytes(),
+      // ISSUE: let deployer update gameKey
+      // ISSUE: match this key to gameKey
+      "90685cf270025cddab375b3de595e9b87548c5f05f9e5bf17502d7cfcb7259f7".hexToBytes(),
+      *sigCh))
+    |
+    for (doVerify <- verifyCh) {
+      *doVerify
+      |
+      for (@true <- sigCh) {
+        @"stdout"!(["@@happy!", turn])
+      }
+      |
+      for (@false <- sigCh) {
+        @"stdout"!(["@@bad sig", turn, turnSig])
+      }
+    }
+  }
+}
+|
+@"stdout"!("takeTurn7 contract in place.")
