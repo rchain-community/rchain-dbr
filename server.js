@@ -39,7 +39,7 @@ Options:
  --db FILE              persistent object storage
                         [default: capper.db]
  --grpc-host NAME       Where to contact rnode gRPC service [default: localhost]
- --grpc-port NUM        Where to contact rnode gRPC service [default: 50000]
+ --grpc-port NUM        Where to contact rnode gRPC service [default: 40401]
  -h --help              show usage
 
 ISSUE: add option to list all REVIVERs?
