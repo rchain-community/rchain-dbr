@@ -3,7 +3,7 @@ new registerGame, makeTrustCommunity in {
 @"stderr"!("@@communityTrust.rho running...") |
 
 // ISSUE: how do we replace contracts during dev? registerGameNNN gets old.
-new game1Ch in {
+new game1Ch, logPlayer in {
   registerGame!(
     *makeTrustCommunity,
     "90685cf270025cddab375b3de595e9b87548c5f05f9e5bf17502d7cfcb7259f7".hexToBytes(),
@@ -12,15 +12,36 @@ new game1Ch in {
   // TODO: why can't we match on @[@game1, _]?
   for (game1 <- game1Ch) {
     @"stdout"!(["registered game; adding players:", *game1])|
-    game1!(["join", "dckc"], "stdout")
+    game1!(["join", "dckc"], *logPlayer)
     |
-    game1!(["join", "a1"], "stdout")
+    game1!(["join", "a1"], *logPlayer)
     |
-    game1!(["join", "b2"], "stdout")
+    game1!(["join", "b2"], *logPlayer)
     |
-    game1!(["join", "c3"], "stdout")
+    game1!(["join", "c3"], *logPlayer)
     |
-    game1!(["join", "d4"], "stdout")
+    game1!(["join", "d4"], *logPlayer)
+    |
+    contract logPlayer(@player) = {
+      @"stdout"!(["player registered:", player])
+    }
+
+    |
+    new roCh, uCh, doCh, resultCh in {
+      game1!("reading", *roCh) |
+      for (ro <- roCh) {
+        ro!("getTable", "users", *uCh) |
+        for (@users <- uCh) {
+          @{users.get("a1")}!("certify", users.get("b2"), 1, *doCh) |
+          for (_ <- doCh) {
+            ro!("getTable", "trust_cert", *resultCh) |
+            for (@result <- resultCh) {
+              @"stdout"!(["certs:", result])
+            }
+          }
+        }
+      }
+    }
   }
 }
 |
@@ -92,10 +113,10 @@ new gamesByKey in {
 
 |
 contract makeTrustCommunity(return) = {
-  new community, byName, lookup in {
+  new community, readOnly, byName, trustCertCh in {
     return!(*community)  // TODO: return lookup too
     |
-    byName!({})
+    byName!({}) | trustCertCh!({})
     |
     for (@["merge", "trust_cert",
       {@"cert_time"!(t) | @"rating"!(r) | @"subject"!(s) | @"voter"!(v)}], return <= community) {
@@ -113,11 +134,21 @@ contract makeTrustCommunity(return) = {
       }
     }
     |
-    contract lookup(@name, return) = {
-      for (@named <- byName) {
-        byName!(named)
-        |
-        return!(named.get(name))
+    for(@"reading", return <= community) {
+      return!(*readOnly)
+    }
+    |
+    for(@"getTable", @"trust_cert", return <= readOnly) {
+      for(@t <- trustCertCh) {
+        trustCertCh!(t) | return!(t)
+      }
+    }
+    |
+    // ISSUE: this design is no good; it lets anybody lookup any player
+    // and then exercise the rights of that player.
+    for(@"getTable", @"users", return <= readOnly) {
+      for(@t <- byName) {
+        byName!(t) | return!(t)
       }
     }
     |
@@ -142,7 +173,10 @@ contract makeTrustCommunity(return) = {
               for (@"certify", @subject, @level, return <= player) {
                 @"stdout"!(["@@debug", myName, *player, "certifies", subject, "at", level])
                 |
-                return!([*player, subject, level])
+                for (@t <- trustCertCh) {
+                  trustCertCh!(t.union({[*player, subject]: level})) |
+                  return!(true)
+                }
               }
             }
           }
