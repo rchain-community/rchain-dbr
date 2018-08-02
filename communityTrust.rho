@@ -1,9 +1,11 @@
-@"stderr"!("@@takeTurn23 contract in place.") |
+new registerGame, makeTrustCommunity in {
+
+@"stderr"!("@@takeTurn contract in place.") |
 
 // ISSUE: how do we replace contracts during dev? registerGameNNN gets old.
 new game1Ch in {
-  @"registerGame23"!(
-    "makeTrustCommunity23",
+  registerGame!(
+    *makeTrustCommunity,
     "90685cf270025cddab375b3de595e9b87548c5f05f9e5bf17502d7cfcb7259f7".hexToBytes(),
     *game1Ch)
   |
@@ -27,7 +29,7 @@ new gamesByKey in {
   |
 
   // ISSUE: if maker never returns, our gamesByKey gets stuck.
-  contract @"registerGame23"(maker, @pk, return) = {
+  contract registerGame(maker, @pk, return) = {
     @"stderr"!("@@TODO: require signature from registerGame caller to prevent clobbering.") |
     new gameCh in {
       for (@old <- gamesByKey) {
@@ -44,7 +46,7 @@ new gamesByKey in {
   }
 
   |
-  contract @"takeTurn23"(@gameKey, @turn, @turnSig, return) = {
+  contract @"takeTurn"(@gameKey, @turn, @turnSig, return) = {
     for (@old <- gamesByKey) {
       gamesByKey!(old)  // TODO: peek
       |
@@ -88,7 +90,7 @@ new gamesByKey in {
 }
 
 |
-contract @"makeTrustCommunity23"(return) = {
+contract makeTrustCommunity(return) = {
   new community, byName in {
     return!(*community)
     |
@@ -145,4 +147,6 @@ contract @"makeTrustCommunity23"(return) = {
       }
     }
   }
+}
+
 }
