@@ -120,7 +120,7 @@ function appFactory(parent, { clock, rchain }) {
 		  turnTerm = RSON.stringify(turnMsg),
 		  turnSig = gameKey.signBytesHex(rchain.toByteArray(turnMsg)),
 		  turnSigTerm = rholang(turnSig),
-		  takeTurnTerm = `@"takeTurn"!(${gameTerm}, ${turnTerm}, ${turnSigTerm})`;
+		  takeTurnTerm = `@"takeTurn"!(${gameTerm}, ${turnTerm}, ${turnSigTerm}, "stdout")`;
 
 	    console.log('@@deploying:', takeTurnTerm);
             return rchain.doDeploy(takeTurnTerm).then(result => {
