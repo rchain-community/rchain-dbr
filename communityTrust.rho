@@ -9,6 +9,7 @@ new game1Ch in {
     "90685cf270025cddab375b3de595e9b87548c5f05f9e5bf17502d7cfcb7259f7".hexToBytes(),
     *game1Ch)
   |
+  // TODO: why can't we match on @[@game1, _]?
   for (game1 <- game1Ch) {
     @"stdout"!(["registered game; adding players:", *game1])|
     game1!(["join", "dckc"], "stdout")
@@ -91,8 +92,8 @@ new gamesByKey in {
 
 |
 contract makeTrustCommunity(return) = {
-  new community, byName in {
-    return!(*community)
+  new community, byName, lookup in {
+    return!(*community)  // TODO: return lookup too
     |
     byName!({})
     |
@@ -100,44 +101,48 @@ contract makeTrustCommunity(return) = {
       {@"cert_time"!(t) | @"rating"!(r) | @"subject"!(s) | @"voter"!(v)}], return <= community) {
       @"stderr"!(["@@merge:", [v, s, r]]) |
       for (@old <- byName) {
-        // @"stderr"!(["@@merge lookup name:", v, old]) |
         byName!(old)
         |
-        match old.get(v) {
-          Nil => { return!(Nil) }
-          vp => {
-            @"stderr"!(["@@merge vp:", v, vp]) |
-            @vp!("certify", s, r, *return)
+        match [old.get(v), old.get(s)] {
+          [Nil, _] => { return!({"error": ["unknown voter:", v]}) }
+          [_, Nil] => { return!({"error": ["unknown subject:", s]}) }
+          [voter, subject] => {
+            @voter!("certify", subject, r, *return)
           }
         }
       }
     }
     |
+    contract lookup(@name, return) = {
+      for (@named <- byName) {
+        byName!(named)
+        |
+        return!(named.get(name))
+      }
+    }
+    |
     // TODO: petnames
+    // ISSUE: join would be a method on the player. call this addPlayer or makePlayer?
     for (@["join", myName], return <= community) {
-
-      new player in {
-        @"stdout"!(["new player:", myName, *player]) |
-        return!(*player)
-        |
-        for (@old <- byName) {
-          byName!(old.union({myName: *player}))
-        }
-        |
-        for (@"certify", @subjectName, @level, return <= player) {
-          for (@old <- byName) {
-            byName!(old)
+      for (@named <- byName) {
+        match named.get(myName) {
+          ~Nil => {
+            @"stderr"!(["name already taken", myName]) |
+            byName!(named)
             |
-            match old.get(subjectName) {
-              Nil => {
-                // ISSUE: can we leave such votes in the tuplespace until subject joins?
-                @"stderr"!(["@@certify whom???", subjectName])|
-                return!(Nil)
-              }
-              subject => {
-                @"stdout"!(["@@debug", myName, *player, "certifies", subjectName, subject, "at", level])
+            return!(Nil)
+          }
+          Nil => {
+            new player in {
+              @"stdout"!(["new player:", myName, *player]) |
+              return!(*player)
+              |
+              byName!(named.union({myName: *player}))
+              |
+              for (@"certify", @subject, @level, return <= player) {
+                @"stdout"!(["@@debug", myName, *player, "certifies", subject, "at", level])
                 |
-                return!([myName, subjectName, level])
+                return!([*player, subject, level])
               }
             }
           }
