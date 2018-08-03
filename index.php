@@ -9,7 +9,7 @@ ini_set('error_log','/tmp/php_errors.log');
 // Override the default error handler behavior
 set_exception_handler(function($exception) {
    error_log($exception);
-   print("Oops. Technical difficulties. This might be harmless, or you may have hit a bug. If your vote / edit didn't get recorded, see <a href="https://github.com/rchain/bounties/wiki/VotingTrouble">VotingTrouble</a> in the wiki.");
+   print("Oops. Technical difficulties. This might be harmless, or you may have hit a bug. If your vote / edit didn't get recorded, see <a href='https://github.com/rchain/bounties/wiki/VotingTrouble'>VotingTrouble</a> in the wiki.");
    exit();
 });
 
