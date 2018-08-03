@@ -136,6 +136,8 @@ class conf_ApplicationDelegate {
         $site = DATAFACE_SITE_HREF;
         echo <<<EOT
 <ul>
+  <li><strong>WARNING! This database is having trouble since around July 30.
+      See <a href='https://github.com/rchain/bounties/wiki/VotingTrouble'>VotingTrouble</a></strong></li>
   <li><a href='https://github.com/rchain/bounties/wiki/How-To-Use-the-Budget-Rewards-Web-App'>Help / How-To</a></li>
   <ul>
     <li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>
