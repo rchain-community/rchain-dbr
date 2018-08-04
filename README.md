@@ -50,7 +50,7 @@ trust metric are written in python with sqlalchemy and pandas.
 At a high level:
 
   1. Create OAuth apps in github, discord.
-  2. Initialize a mysql database from `dbr_tables.sql` etc.
+  2. Initialize a mysql database from `dbr_schema` etc.
   3. Install software dependencies.
   4. Fill in `conf.ini` from `conf.ini.example`.
 
@@ -115,7 +115,7 @@ e.g. `https://rewards-test.rhobot.net/github_auth_callback.php`.
 
 ### nginx, python, and systemd sockets
 
-As shown in `dbr_aux.service` and `deploy_tasks/nginx_site.yml`, the
+As shown in `deploy_tasks/`, the
 python code runs as a systemd service called `dbr_aux`; `nginx`
 connects to it via a socket: `/tmp/dbr_aux.sock`. _ISSUE: how is the
 socket supposed to get created?_
