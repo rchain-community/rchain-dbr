@@ -144,7 +144,6 @@ select * from reward_unwt
 union all
 select * from reward_wt;
 
-
 create or replace view task_approval_overdue as
 select i.* from (
   select num issue_num, title, state
@@ -155,8 +154,9 @@ select i.* from (
   where i.updatedAt < date_sub(current_timestamp, interval 36 hour) -- issues discussed recently are excused
   and ((i.state = 'OPEN' and i.labels not like '%"needs-SMART-objective"%')
        or 
-       (i.state = 'CLOSED' and
-        datediff(current_timestamp, i.updatedAt) < 60  -- updated in the last pay period or two
+       (i.state = 'CLOSED'
+        and datediff(current_timestamp, i.updatedAt) < 60  -- updated in the last pay period or two
+	and i.labels not like '%"needs-SMART-objective"%'
         and i.labels not like '%"invalid"%'
         and i.labels not like '%"wontfix"%'
 	and i.labels not like '%"duplicate"%'))
