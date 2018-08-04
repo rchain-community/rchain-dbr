@@ -50,7 +50,7 @@ async function subscribe(connection, rchain, rewards) {
 	console.log('@@event:', event);
 	const rho = d => RSON.stringify(RSON.fromData(replaceDates(d)));
 	const msg = `${rho(event.type)}, ${rho(event.affectedRows)}`;
-	const send = `[\`${rewards}\`, ${rho(event.table)}]!(${msg})`;
+	const send = `@[\`${rewards}\`, ${rho(event.table)}]!(${msg})`;
 	console.log('@@rho:', send);
     };
 
@@ -76,7 +76,7 @@ function replaceDates(obj) {
 	if (typeof x !== 'object' || x == null) {
 	    return x;
 	} else if (x instanceof Date) {
-	    return [x.toISOString(), x.valueOf()];
+	    return x.toISOString();
 	} else if (x instanceof Array) {
 	    return x.map(recur);
 	} else {
