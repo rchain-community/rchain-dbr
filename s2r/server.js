@@ -1,6 +1,3 @@
-const docopt = require('docopt').docopt;
-const MySQLEvents = require('@rodrigogs/mysql-events');
-
 const usage = `
 Replicate MySql events in RChain
 
@@ -8,6 +5,10 @@ Usage:
   server.js [options]
 
 Options:
+ --rewards URL   URL of budget and rewards app
+                 [default: https://rewards.rchain.coop]
+ --grpc-host H   RChain node host [default: localhost]
+ --grpc-port P   RChain node port [default: 40401]
  --host HOST     mysql connection host [default: 127.0.0.1]
  --port PORT     mysql connection port [default: 3506]
  --user USER     mysql connection user [default: rchain_binlog]
@@ -16,37 +17,82 @@ Options:
  --help          show usage help
 `;
 
-function main(argv, env, { createConnection }) {
+const MySQLEvents = require('@rodrigogs/mysql-events');
+const docopt = require('docopt').docopt;
+const rchainAPI = require('rchain-api'),
+      RSON = rchainAPI.RSON;
+
+function main(argv, env, { createConnection, grpc, clock }) {
     const cli = docopt(usage, { argv: argv.slice(2) });
-    program(createConnection({
-	host: cli['--host'], port: parseInt(cli['--port']),
-	user: cli['--user'], password: env[cli['--passkey']] }))
-	.then(() => console.log('Waiting for database events...'))
+    const rchain = rchainAPI.clientFactory({ grpc, clock })
+	      .casperClient({ host: cli['--grpc-host'], port: parseInt(cli['--grpc-port']) });
+
+    const acctInfo = { user: cli['--user'],
+		       host: cli['--host'], port: parseInt(cli['--port']) };
+    const mysql = createConnection(Object.assign({ password: env[cli['--passkey']] }, acctInfo));
+
+    subscribe(mysql, rchain, cli['--rewards'])
+	.then(() => console.log('Waiting for database events from...', acctInfo))
 	.catch(console.error);
 }
 
-const program = async (connection) => {
-  const instance = new MySQLEvents(connection, {
-    startAtEnd: true,
-    excludedSchemas: {
-      mysql: true,
-    },
-  });
+async function subscribe(connection, rchain, rewards) {
+    const instance = new MySQLEvents(connection, {
+	startAtEnd: true,
+	excludedSchemas: {
+	    mysql: true,
+	},
+    });
 
-  await instance.start();
+    await instance.start();
 
-  instance.addTrigger({
-    name: 'TEST',
-    expression: '*',
-    statement: MySQLEvents.STATEMENTS.ALL,
-    onEvent: (event) => { // You will receive the events here
-      console.log(event);
-    },
-  });
+    const logVote = (event) => {
+	console.log('@@event:', event);
+	const rho = d => RSON.stringify(RSON.fromData(replaceDates(d)));
+	const msg = `${rho(event.type)}, ${rho(event.affectedRows)}`;
+	const send = `[\`${rewards}\`, ${rho(event.table)}]!(${msg})`;
+	console.log('@@rho:', send);
+    };
 
-  instance.on(MySQLEvents.EVENTS.CONNECTION_ERROR, console.error);
-  instance.on(MySQLEvents.EVENTS.ZONGJI_ERROR, console.error);
+    ['budget_vote', 'reward_vote'].forEach(t => {
+	instance.addTrigger({
+	    name: t,
+	    expression: `xataface.${t}`,
+	    statement: MySQLEvents.STATEMENTS.ALL,
+	    onEvent: logVote,
+	});
+    });
+
+    instance.on(MySQLEvents.EVENTS.CONNECTION_ERROR, console.error);
+    instance.on(MySQLEvents.EVENTS.ZONGJI_ERROR, console.error);
+
+    return instance;
 };
+
+function replaceDates(obj) {
+    return recur(obj);
+
+    function recur(x) {
+	if (typeof x !== 'object' || x == null) {
+	    return x;
+	} else if (x instanceof Date) {
+	    return [x.toISOString(), x.valueOf()];
+	} else if (x instanceof Array) {
+	    return x.map(recur);
+	} else {
+	    return Object.keys(x).reduce((acc, prop) => {
+		acc[prop] = recur(x[prop]);
+		return acc;
+	    }, {});
+	}
+    }
+}
+
+function logged(x) {
+    console.log('@@', x);
+    return x;
+}
+
 
 
 if (require.main == module) {
@@ -55,6 +101,8 @@ if (require.main == module) {
     // TODO: document Object capability discipline in CONTRIBUTING.md.
     main(process.argv, process.env,
          {
-	     createConnection: require('mysql').createConnection
+	     createConnection: require('mysql').createConnection,
+	     grpc: require('grpc'),
+	     clock: () => new Date(),
 	 });
 }
