@@ -6,7 +6,7 @@ cache/
 composer-setup.php
 composer.phar
 conf.ini
-creds
+conf/creds
 dbr
 playbook.retry
 templates_c/
