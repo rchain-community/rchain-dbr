@@ -106,7 +106,7 @@ class conf_ApplicationDelegate {
         $app =& Dataface_Application::getInstance();
         $app->addHeadContent(
                 sprintf('<link rel="stylesheet" type="text/css" href="%s"/>',
-                        htmlspecialchars(DATAFACE_SITE_URL.'/rchain-style.css')
+                        htmlspecialchars(DATAFACE_SITE_URL.'/templates/rchain-style.css')
                 )
             );
 
