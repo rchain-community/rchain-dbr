@@ -47,11 +47,15 @@ async function subscribe(connection, rchain, rewards) {
     await instance.start();
 
     const logVote = (event) => {
-	console.log('@@event:', event);
-	const rho = d => RSON.stringify(RSON.fromData(replaceDates(d)));
+	console.log({type: event.type, table: event.table, rows: event.affectedRows.length });
+	console.log('@@rows:', event.affectedRows);
+	const rho = d => RSON.stringify(RSON.fromData(jsonData(d)));
 	const msg = `${rho(event.type)}, ${rho(event.affectedRows)}`;
 	const send = `@[\`${rewards}\`, ${rho(event.table)}]!(${msg})`;
+	console.log('@@TODO: sign the voting event');
 	console.log('@@rho:', send);
+	rchain.doDeploy(send)
+	    .then(d => console.log('@@doDeploy result:', d));
     };
 
     ['budget_vote', 'reward_vote'].forEach(t => {
@@ -69,7 +73,13 @@ async function subscribe(connection, rchain, rewards) {
     return instance;
 };
 
-function replaceDates(obj) {
+
+/**
+ * Prepare data for JSON serialization.
+ *
+ * Replace dates using toISOString and prune undefined properties.
+ */
+function jsonData(obj) {
     return recur(obj);
 
     function recur(x) {
@@ -81,7 +91,9 @@ function replaceDates(obj) {
 	    return x.map(recur);
 	} else {
 	    return Object.keys(x).reduce((acc, prop) => {
-		acc[prop] = recur(x[prop]);
+		if (x[prop] !== undefined) {
+		    acc[prop] = recur(x[prop]);
+		}
 		return acc;
 	    }, {});
 	}
