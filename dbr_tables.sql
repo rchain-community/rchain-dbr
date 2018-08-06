@@ -129,5 +129,6 @@ create table trust_cert (
         foreign key (subject) references github_users(login) -- fk_cert_worker
         )
     ;
+ALTER TABLE trust_cert CONVERT TO CHARACTER SET utf8 COLLATE utf8_general_ci;
 
 ALTER DATABASE xataface CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
