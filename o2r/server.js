@@ -49,7 +49,7 @@ ISSUE: help on each REVIVER?
 const def = obj => Object.freeze(obj);
 
 
-function main(argv, { fs, path, clock, crypto, https, express, passport, random_keyPair, grpc }) {
+function main(argv, { fs, path, clock, crypto, https, express, passport, grpc }) {
     const unique = Capper.caplib.makeUnique(crypto.randomBytes);
 
     const cli = docopt(usage, { argv: argv.slice(2) });
@@ -72,7 +72,7 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, random_
 	    gateway: gateway.appFactory({app, passport, setSignIn,
 					 sturdyPath,
 					 baseURL: config.domain}),
-	    keyChain: keyPair.appFactory({ random_keyPair }),
+	    keyChain: keyPair.appFactory({ randomBytes: crypto.randomBytes }),
 	    game: gameSession.appFactory('game', { clock, rchain })
 	});
 
@@ -144,7 +144,6 @@ if (require.main == module) {
 	     // Random number generation is primitive (typically implemented
 	     // as access to a special file, /dev/urandom).
 	     crypto: require('crypto'),
-	     random_keyPair: require('tweetnacl').sign.keyPair,
 	     // Access to the clock is primitive.
 	     clock: () => new Date(),
 	     // If node's https module followed ocap discipline, it would
