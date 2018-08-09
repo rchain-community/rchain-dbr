@@ -211,4 +211,8 @@ function ro_field() {
     return $perms;
 }
 
+function link_markup($href, $content) {
+		return '<a href="'.htmlspecialchars($href).'" >'.$content.'</a>';
+}
+
 ?>
