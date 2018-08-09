@@ -24,8 +24,4 @@ class tables_github_users {
 	}
 }
 
-function link_markup($href, $content) {
-		return '<a href="'.htmlspecialchars($href).'" >'.$content.'</a>';
-}
-
 ?>
