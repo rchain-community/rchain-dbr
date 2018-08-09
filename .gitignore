@@ -12,3 +12,4 @@ playbook.retry
 templates_c/
 vendor/
 xataface-2.1.3/
+201*.sql
