@@ -3,9 +3,20 @@
 # xataface requires title goes outside sections, but...
 # mysqldump: [ERROR] Found option without preceding group in config file
 # title="RChain Bounty Budget and Rewards (BETA)"
+disable_g2 = 1 ;;Necessary for proper working
 
 [_xataface_installation]
 xataface_location=xataface-2.1.3/dataface-public-api.php
+
+# A xataface theme with responsive technology
+# 81da842  Feb 27 2018
+# https://github.com/carmaz79/xataface-responsive-theme
+[_modules]
+modules_egrappler=modules/egrappler/egrappler.php
+
+[_prefs]
+
+horizontal_tables_menu = 1 ;; 0/1 values
 
 [client]
 ;; a la .my.cnf for mysqldump
