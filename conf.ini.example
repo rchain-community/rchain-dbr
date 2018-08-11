@@ -1,8 +1,8 @@
 ;; http://xataface.com/wiki/How_to_build_a_PHP_MySQL_Application_with_4_lines_of_code
 
-# xataface requires title goes outside sections, but...
-# mysqldump: [ERROR] Found option without preceding group in config file
-# title="RChain Bounty Budget and Rewards (BETA)"
+;; xataface requires title goes outside sections, but...
+;; mysqldump: [ERROR] Found option without preceding group in config file
+title="RChain Bounty Budget and Rewards"
 disable_g2 = 1 ;;Necessary for proper working
 
 [_xataface_installation]
@@ -16,7 +16,21 @@ modules_egrappler=modules/egrappler/egrappler.php
 
 [_prefs]
 
-horizontal_tables_menu = 1 ;; 0/1 values
+horizontal_tables_menu = 0 ;; 0/1 values
+
+[_icons] ;; Is a new section on conf.ini
+issue = "icon-comment"
+github_users = "icon-user"
+issue_budget = "icon-money"
+budget_vote = "icon-comments"
+reward_vote = "icon-comments-alt"
+reward = "icon-gift"
+trust_cert = "icon-ok"
+authorities = "icon-ok-circle"
+pay_period = "icon-calendar"
+task_approval_overdue = "icon-time"
+invoice_summary = "icon-list-alt"
+
 
 [client]
 ;; a la .my.cnf for mysqldump
@@ -38,7 +52,7 @@ db_url="mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(name)s?charset
 
 [_tables]
 ;; This section lists the tables to include in your application menu
-admin_settings=Status
+;; admin_settings=Admin Settings
 issue=Issue
 issue_budget=Budget
 reward=Reward
@@ -47,8 +61,10 @@ authorities=Ratings
 trust_cert=Certifications
 budget_vote=Budget Vote
 reward_vote=Reward Vote
-task_approval_overdue=Task Approval Overdue
+task_approval_overdue=Overdue
 pay_period=Pay Period
+invoice_summary=Invoice Summary
+
 
 [_auth]
 auth_type=XDB
