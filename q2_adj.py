@@ -86,6 +86,7 @@ def read_invoices(pay_period, rd, pdftotxt):
             if rewards.reward_usd.sum() != subtot:
                 raise ValueError()
             rewards['pay_period'] = pay_period
+            _log(rewards.groupby(['pay_period', 'worker'])[['reward_usd']].sum())
             rewards = rewards.set_index(['pay_period', 'worker', 'issue_num'])
             # _log(rewards)
             if out is None:
