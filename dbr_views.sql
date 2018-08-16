@@ -133,9 +133,12 @@ from (
 ;
 -- eyeball it: select * from reward_wt order by voter_qty desc;
 create or replace view reward as
-select * from reward_unwt
-union all
-select * from reward_wt;
+select * from reward_fixed
+union all select * from (
+  select * from reward_unwt
+  union all
+  select * from reward_wt
+) dyn where dyn.pay_period >= (select current_pay_period from admin_settings);
 
 
 create or replace view task_approval_overdue as
