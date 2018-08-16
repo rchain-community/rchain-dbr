@@ -34,9 +34,12 @@ def main(argv, cwd, run, create_engine):
         make_claims_table(pd.read_csv(str(cwd / cli['--claims'])),
                           pay_period.strftime('%b'), io.db())
     elif cli['import-invoices']:
-        import_invoices(pay_period,
-                        cwd / cli['--invoices'],
-                        mkConvert(run))
+        data = read_invoices(pay_period,
+                             cwd / cli['--invoices'],
+                             mkConvert(run))
+        _log('inserting %d records into invoice_rewards' % len(data))
+        data.reset_index().to_sql('invoice_rewards', io.db(),
+                                  index=False, if_exists='replace')
 
 
 def _log(x):
@@ -54,24 +57,32 @@ def make_claims_table(claims, month, db):
     pp_claims.to_sql('claims_' + month, db)
 
 
-def import_invoices(pay_period, rd, pdftotxt):
+def read_invoices(pay_period, rd, pdftotxt):
     invoices = rd.glob('**/*.pdf')
+    out = None
     for inv in invoices:
         _log(str(inv))
         txt = pdftotxt(inv)
         cols, detail, subtot = parse_rewards(txt.open().readlines())
         rewards = pd.DataFrame.from_records(detail, columns=cols)
-        if len(rewards) > 0 and rewards.reward_usd.sum() != subtot:
-            raise ValueError()
-        rewards['pay_period'] = pay_period
-        _log(rewards)
-    return rewards
+        if len(rewards) > 0:
+            if rewards.reward_usd.sum() != subtot:
+                raise ValueError()
+            rewards['pay_period'] = pay_period
+            rewards = rewards.set_index(['pay_period', 'worker', 'issue_num'])
+            # _log(rewards)
+            if out is None:
+                out = rewards
+            else:
+                out = out.append(rewards)
+    return out
 
 
 def parse_rewards(lines):
     github_id = None
-    detail_cols = None
+    detail_cols = []
     detail = []
+    subtot = None
 
     money = lambda txt: float(txt.replace(',', ''))  # noqa
     desc = lambda txt: txt.strip()  # noqa
@@ -95,7 +106,7 @@ def parse_rewards(lines):
             hd = line.strip()[:18].strip()
             if hd == 'GitHub ID':
                 github_id = line.strip()[20:50].strip()
-        elif detail_cols is None:
+        elif not detail_cols:
             for hd_pat, detail_pat, cols, col_types in styles:
                 if re.search(hd_pat, line):
                     detail_cols = cols
