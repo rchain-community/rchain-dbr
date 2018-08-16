@@ -2,10 +2,12 @@
 
 Usage:
   q2_adj [options] import-invoices
+  q2_adj [options] import-invoice-summary
   q2_adj [options] make-claims-table
 
 Options:
   --claims=FILE     Claims tab [default: cache/Declarations - Claims.csv]
+  --summary=FILE    Invoice summary [default: cache/import_invoice_summary.csv]
   --pay-period=YM   Pay period to work on [default: 201805]
   --config=FILE     config file with github_repo.read_token
                     and _databse.db_url
@@ -30,7 +32,9 @@ def main(argv, cwd, run, create_engine):
     pay_period = datetime.strptime(cli['--pay-period'] + '01', '%Y%m%d')
     _log((pay_period, pay_period.strftime('%b')))
     io = IO(create_engine, build_opener, cwd / cli['--config'])
-    if cli['make-claims-table']:
+    if cli['import-invoice-summary']:
+        import_invoice_summary(pay_period, str(cwd / cli['--summary']), io.db())
+    elif cli['make-claims-table']:
         make_claims_table(pd.read_csv(str(cwd / cli['--claims'])),
                           pay_period.strftime('%b'), io.db())
     elif cli['import-invoices']:
@@ -55,6 +59,19 @@ def make_claims_table(claims, month, db):
     pp_claims = pp_claims[['Total in USD', 'Month', 'GithubName']]
     _log(pp_claims.head())
     pp_claims.to_sql('claims_' + month, db)
+
+
+def import_invoice_summary(pay_period, rd, db):
+    data = pd.read_csv(rd,
+                       skiprows=2,
+                       parse_dates=['pay_period', 'Unnamed: 16'])
+    data = data[data.pay_period == pay_period]
+    _log(data.columns)
+    data = data[data.columns[16:21]]
+    data.columns = ['pay_period', 'worker', 'issues', 'reward_usd', 'RHOC']
+    _log(data.head(2))
+    data.to_sql('import_invoice_summary', db,
+                if_exists='replace', index=False)
 
 
 def read_invoices(pay_period, rd, pdftotxt):
