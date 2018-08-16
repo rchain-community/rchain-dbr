@@ -1,18 +1,22 @@
 """q2_adj -- adjustments to fix Q2 reporting
 
 Usage:
-  q2_adj [options]
+  q2_adj [options] import-invoices
+  q2_adj [options] make-claims-table
 
 Options:
-  --claims=FILE    Claims tab [default: cache/Declarations - Claims.csv]
-  --month=Mon      Pay period to work on [default: May]
+  --claims=FILE     Claims tab [default: cache/Declarations - Claims.csv]
+  --pay-period=YM   Pay period to work on [default: 201805]
   --config=FILE     config file with github_repo.read_token
                     and _databse.db_url
                     [default: conf.ini]
+  --invoices=DIR    directory (tree) of .pdf invoices [default: cache]
 
 """
 
 from sys import stderr
+from datetime import datetime
+import re
 
 from docopt import docopt
 import pandas as pd
@@ -20,29 +24,120 @@ import pandas as pd
 from social_coding_sync import IO
 
 
-def main(argv, cwd, create_engine):
+def main(argv, cwd, run, create_engine):
     cli = docopt(__doc__, argv=argv[1:])
-    print(cli, file=stderr)
-    claims = pd.read_csv(str(cwd / cli['--claims']))
-    month = cli['--month']
-    pp_claims = claims[claims.Month == month]
-    pp_claims = pp_claims[['Total in USD', 'Month', 'GithubName']]
-    print(pp_claims.head(), file=stderr)
+    _log(cli)
+    pay_period = datetime.strptime(cli['--pay-period'] + '01', '%Y%m%d')
+    _log((pay_period, pay_period.strftime('%b')))
     io = IO(create_engine, build_opener, cwd / cli['--config'])
-    pp_claims.to_sql('claims_' + month, io.db())
+    if cli['make-claims-table']:
+        make_claims_table(pd.read_csv(str(cwd / cli['--claims'])),
+                          pay_period.strftime('%b'), io.db())
+    elif cli['import-invoices']:
+        import_invoices(pay_period,
+                        cwd / cli['--invoices'],
+                        mkConvert(run))
+
+
+def _log(x):
+    print(x, file=stderr)
 
 
 def build_opener(*args):
     raise IOError('not allowed')
 
 
+def make_claims_table(claims, month, db):
+    pp_claims = claims[claims.Month == month]
+    pp_claims = pp_claims[['Total in USD', 'Month', 'GithubName']]
+    _log(pp_claims.head())
+    pp_claims.to_sql('claims_' + month, db)
+
+
+def import_invoices(pay_period, rd, pdftotxt):
+    invoices = rd.glob('**/*.pdf')
+    for inv in invoices:
+        _log(str(inv))
+        txt = pdftotxt(inv)
+        cols, detail, subtot = parse_rewards(txt.open().readlines())
+        rewards = pd.DataFrame.from_records(detail, columns=cols)
+        if len(rewards) > 0 and rewards.reward_usd.sum() != subtot:
+            raise ValueError()
+        rewards['pay_period'] = pay_period
+        _log(rewards)
+    return rewards
+
+
+def parse_rewards(lines):
+    github_id = None
+    detail_cols = None
+    detail = []
+
+    money = lambda txt: float(txt.replace(',', ''))  # noqa
+    desc = lambda txt: txt.strip()  # noqa
+
+    styles = [
+        (r'Issue Number\s+Description\s+USD\s*',
+         r'(\d+)\s+(.{65})\s+\(?\$\s*([\d\.,]+)\)?',
+         ['issue_num', 'title', 'reward_usd'],
+         [int, desc, money]),
+        (r'Issue #\s+Description\s+# Votes\s+Budget\s+% Reward\s+USD\s*',
+         r'(\d+)\s+(.{53})\s+(\d+)\s+\(?\$\s*([\d\.,]+)\)?\s+'
+         '(\d+\.\d+) %\s+\(?\$\s*([\d\.,]+)\)?',
+         ['issue_num', 'title', 'vote_qty',
+          'budget_usd', 'percent_avg', 'reward_usd'],
+         [int, desc, int,
+          money, float, money])
+    ]
+
+    for line in lines:
+        if github_id is None:
+            hd = line.strip()[:18].strip()
+            if hd == 'GitHub ID':
+                github_id = line.strip()[20:50].strip()
+        elif detail_cols is None:
+            for hd_pat, detail_pat, cols, col_types in styles:
+                if re.search(hd_pat, line):
+                    detail_cols = cols
+                    # _log(detail_cols)
+                    break
+        elif line.strip().startswith('Add rows above') or line.strip() == '':
+            pass
+        elif line.strip().startswith('Subtotal of Issues'):
+            subtot = money(line.strip().split('($')[1].strip()[:-1])
+            # _log(('subtot:', subtot))
+            break
+        else:
+            m = re.search(detail_pat, line)
+            if m:
+                values = [f(txt) for f, txt in zip(col_types, m.groups())]
+                record = dict(dict(zip(detail_cols, values)),
+                              worker=github_id)
+                # _log(record)
+                detail.append(record)
+            else:
+                _log(line + 'MISMATCH: ' + detail_pat)
+
+    return (detail_cols + ['worker']), detail, subtot
+
+
+def mkConvert(run):
+    def convert(pdf):
+        txt = pdf.with_suffix('.txt')
+        run(['pdftotext', '-layout', str(pdf), str(txt)])
+        return txt
+
+    return convert
+
+
 if __name__ == '__main__':
     def _script():
         from sys import argv
         from pathlib import Path
+        from subprocess import run
         from sqlalchemy import create_engine
 
-        main(argv[:], cwd=Path('.'),
+        main(argv[:], cwd=Path('.'), run=run,
              create_engine=create_engine)
 
     _script()
