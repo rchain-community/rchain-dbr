@@ -1,6 +1,7 @@
 drop table if exists trust_cert;
 drop table if exists invoice_info;
 drop table if exists reward_vote;
+drop table if exists reward_fixed;
 drop table if exists budget_vote;
 drop table if exists github_users;
 drop table if exists admin_settings;
@@ -117,6 +118,31 @@ alter table reward_vote add column slash boolean;
 alter table reward_vote add column weight int;
 ALTER TABLE reward_vote CONVERT TO CHARACTER SET utf8;
 
+
+CREATE TABLE `reward_fixed` (
+  `issue_num` int(11) NOT NULL,
+  `title` text NOT NULL,
+  `worker` varchar(64) NOT NULL,
+  `reward_usd` decimal(13, 2) not null,
+  `percent_avg` double not null,
+  `budget_usd` decimal(13, 2) not null,
+  `voter_qty` int NOT NULL,
+  `voters` mediumtext not null,
+  `reward_provisional` double DEFAULT NULL,
+  `budget_provisional` double DEFAULT NULL,
+  `pay_period` date NOT NULL,
+  `labels` mediumtext CHARACTER SET utf8,
+  primary key(pay_period, issue_num, worker),
+  foreign key (pay_period) references pay_period(start_date), -- fk_reward_period
+  foreign key (issue_num) references issue(num), -- fk_reward_issue
+  foreign key (worker) references github_users(login) -- fk_reward_worker
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+/* TODO: automate close of pay_period:
+
+insert into reward_fixed select * from reward where reward_usd is not null;
+*/
 
 create table trust_cert (
         subject varchar(64) not null,
