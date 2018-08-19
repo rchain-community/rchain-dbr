@@ -671,6 +671,115 @@ class TrustCert(object):
                         left_index=True, right_index=True, how='left')
 
     @classmethod
+    def net_flow(cls, certs, seed, good_qty,
+                 superseed="<superseed>"):
+        '''Evaluate trust metric.
+
+        @param certs: DataFrame with .voter, .subject
+        @param seed: trust seed voters
+        @param good_qty: targe number of trusted subjects
+
+        In a community of people, suppose some of them have certified
+        each other with trust ratings:
+
+        >>> certs = MockIO.certs()
+        >>> certs.head(3)
+           rating subject    voter
+        0       2    mr-z  judge-x
+        1       2    mr-p  judge-p
+        2       2  aunt-p    col-p
+        >>> sorted(certs.rating.unique())
+        [1, 2, 3]
+
+        And suppose a couple of them are the trusted seed and about
+        30% are to be trusted at journeyer level:
+
+        >>> seed = certs.voter[:2]
+        >>> target = len(certs.voter.unique()) * .30
+
+        Who does the trust metric pick?
+
+        >>> who, why = TrustCert.net_flow(certs, seed, target)
+        >>> len(who), target
+        (9, 8.7)
+        >>> who
+                 login
+        0  <superseed>
+        1       aunt-q
+        2       aunt-x
+        3        col-d
+        4      judge-p
+        5      judge-x
+        6         mr-p
+        7         mr-y
+        8         mr-z
+
+        >>> why
+        ... # doctest: +NORMALIZE_WHITESPACE
+                             flow  rating
+        voter       subject
+        <superseed> judge-p     4     NaN
+                    judge-x     4     NaN
+        judge-p     aunt-q      1     1.0
+                    aunt-x      1     1.0
+                    aunt-x      1     1.0
+                    mr-p        1     2.0
+        judge-x     col-d       1     2.0
+                    mr-y        1     3.0
+                    mr-z        1     2.0
+
+        Which are the 60% to be trusted at apprentice level?
+
+        >>> target = len(certs.voter.unique()) * .6
+        >>> who, why = TrustCert.net_flow(certs, certs.voter[:3], target)
+        >>> len(who), target
+        (18, 17.4)
+        >>> who.head(5)
+                 login
+        0  <superseed>
+        1       aunt-p
+        2       aunt-q
+        3       aunt-x
+        4       aunt-y
+
+        '''
+        g = net_flow.NetFlow()
+
+        for _, e in certs.iterrows():
+            g.add_edge(e.voter, e.subject)
+
+        for s in seed:
+            g.add_edge(superseed, s)
+
+        detail = g.max_flow(superseed, cls._capacities(certs, good_qty))
+        who = pd.DataFrame([
+            dict(login=login)
+            for login, value in sorted(detail.extract().items())
+            if login != 'superseed' and value > 0
+        ])
+        why = pd.DataFrame(dict(
+            voter=detail.edge_src,
+            subject=detail.edge_dst,
+            flow=detail.edge_flow))
+        why = why.merge(certs, how='left')
+        why = why[why.flow > 0].set_index(['voter', 'subject'])
+        return who, why.sort_index()
+
+    @classmethod
+    def _capacities(self, certs, good_qty,
+                    max_level=10):
+        """
+        "The capacity of the seed should be equal to
+        the number of good servers in the network,
+        and the capacity of each successive level should be
+        the previous level's capacity divided by the average outdegree."
+        """
+        out_degree = certs.groupby('voter')[['subject']].count()
+        out_avg = out_degree.subject.mean()
+        return [ceil(good_qty / out_avg ** level)
+                for level in range(max_level + 1)]
+
+    @classmethod
     def viz(cls, dbr):
         users = pd.read_sql(
             '''
@@ -768,6 +877,23 @@ class MockIO(object):
     def create_engine(self, db_url):
         from sqlalchemy import create_engine
         return create_engine('sqlite:///')
+
+    @classmethod
+    def certs(cls,
+              size_factor=5):
+        import numpy as np
+        who = pd.Series([
+            pfx + sufx
+            for pfx in ['mr-', 'ms-', 'judge-', 'col-', 'aunt-']
+            for sufx in ['x', 'y', 'z', 'p', 'd', 'q']
+        ])
+        qty = len(who) * size_factor
+        np.random.seed(0)
+        certs = pd.DataFrame(dict(
+            voter=np.random.choice(who, qty),
+            subject=np.random.choice(who, qty),
+            rating=np.random.choice([1, 2, 3], qty)))
+        return certs
 
 
 class MockFP(StringIO):
