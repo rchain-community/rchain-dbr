@@ -540,15 +540,19 @@ class TrustCert(object):
     table = 'trust_cert'
 
     ratings = [1, 2, 3]
+    superseed = '<superseed>'
 
     @classmethod
     def update_results(cls, dbr, seed, good_nodes):
-        trusted = pd.concat([
-            cls.trust_flow(dbr, seed, good_nodes[rating - 1], rating).reset_index()
-            for rating in TrustCert.ratings])
-        trusted = trusted.groupby('login').max()
-        trusted = trusted.sort_index()
-        trusted = trusted[trusted.index != '<superseed>']
+        certs = pd.read_sql('''
+            select voter, subject, rating, cert_time
+            from {table}
+        '''.format(table=cls.table), dbr)
+        trusted = cls.trust_ratings(certs, seed, good_nodes)
+
+        last_cert = certs.groupby('subject')[['cert_time']].max()
+        trusted = trusted.merge(last_cert,
+                                left_index=True, right_index=True, how='left')
         trusted.to_sql('authorities', if_exists='replace', con=dbr,
                        dtype=noblob(trusted))
         return trusted
@@ -621,59 +625,50 @@ class TrustCert(object):
         return seed, good_nodes
 
     @classmethod
-    def trust_flow(cls, dbr, seed, good_qty,
-                   rating=1, max_level=4):
-        g = net_flow.NetFlow()
+    def trust_ratings(cls, certs, seed, good_nodes):
+        """Compute trust ratings.
 
-        last_cert = pd.read_sql('''
-            select subject, max(cert_time) last_cert_time
-            from {table}
-            where rating >= {rating}
-            group by subject
-        '''.format(table=cls.table, rating=rating), dbr).set_index('subject')
+        >>> certs = MockIO.certs()
+        >>> seed = certs.voter[:2]
+        >>> TrustCert.trust_ratings(certs, seed, [18, 9, 5])
+        ... # doctest: +NORMALIZE_WHITESPACE
+                 rating
+        login
+        aunt-q        3
+        aunt-x        1
+        aunt-y        1
+        col-d         2
+        col-p         1
+        col-x         1
+        judge-p       3
+        judge-x       3
+        judge-z       2
+        mr-d          1
+        mr-p          2
+        mr-x          1
+        mr-y          3
+        mr-z          2
+        ms-d          2
+        ms-q          1
+        ms-z          1
+        """
+        def trusted_at(rating):
+            edges = certs[certs.rating >= rating]
+            who, _why = cls.net_flow(edges, seed, good_nodes[rating - 1])
+            who['rating'] = rating
+            return who
 
-        edges = pd.read_sql('''
-            select distinct voter, subject
-            from {table}
-            where rating >= {rating}
-        '''.format(table=cls.table, rating=rating), dbr)
-        for _, e in edges.iterrows():
-            g.add_edge(e.voter, e.subject)
-
-        superseed = "<superseed>"
-        for s in seed:
-            g.add_edge(superseed, s)
-
-        # "The capacity of the seed should be equal to
-        # the number of good servers in the network,
-        # and the capacity of each successive level should be
-        # the previous level's capacity divided by the average outdegree."
-        out_degree = pd.read_sql('''
-            select avg(out_degree) avg from (
-              select voter, count(*) out_degree
-              from {table}
-              where rating >= {rating}
-              group by voter
-            ) by_voter
-        '''.format(table=cls.table, rating=rating), dbr).iloc[0]
-
-        capacities = [ceil(good_qty / out_degree.avg ** level)
-                      for level in range(max_level + 1)]
-        flow = g.max_flow_extract(superseed, capacities)
-        ok = pd.DataFrame([
-            dict(login=login)
-            for login, value in flow.items()
-            if login != 'superseed' and value > 0
-        ]
-        ).set_index('login')
-        ok['rating'] = rating
-        return ok.merge(last_cert,
-                        left_index=True, right_index=True, how='left')
+        trusted = pd.concat([
+            trusted_at(rating)
+            for rating in cls.ratings])
+        trusted = trusted.groupby('login').max()
+        trusted = trusted.sort_index()
+        trusted = trusted[trusted.index != cls.superseed]
+        return trusted
 
     @classmethod
-    def net_flow(cls, certs, seed, good_qty,
-                 superseed="<superseed>"):
-        '''Evaluate trust metric.
+    def net_flow(cls, certs, seed, good_qty):
+        '''Evaluate trust metric for one rating.
 
         @param certs: DataFrame with .voter, .subject
         @param seed: trust seed voters
@@ -716,17 +711,16 @@ class TrustCert(object):
 
         >>> why
         ... # doctest: +NORMALIZE_WHITESPACE
-                             flow  rating
+                             flow
         voter       subject
-        <superseed> judge-p     4     NaN
-                    judge-x     4     NaN
-        judge-p     aunt-q      1     1.0
-                    aunt-x      1     1.0
-                    aunt-x      1     1.0
-                    mr-p        1     2.0
-        judge-x     col-d       1     2.0
-                    mr-y        1     3.0
-                    mr-z        1     2.0
+        <superseed> judge-p     4
+                    judge-x     4
+        judge-p     aunt-q      1
+                    aunt-x      1
+                    mr-p        1
+        judge-x     col-d       1
+                    mr-y        1
+                    mr-z        1
 
         Which are the 60% to be trusted at apprentice level?
 
@@ -749,9 +743,9 @@ class TrustCert(object):
             g.add_edge(e.voter, e.subject)
 
         for s in seed:
-            g.add_edge(superseed, s)
+            g.add_edge(cls.superseed, s)
 
-        detail = g.max_flow(superseed, cls._capacities(certs, good_qty))
+        detail = g.max_flow(cls.superseed, cls._capacities(certs, good_qty))
         who = pd.DataFrame([
             dict(login=login)
             for login, value in sorted(detail.extract().items())
@@ -761,7 +755,6 @@ class TrustCert(object):
             voter=detail.edge_src,
             subject=detail.edge_dst,
             flow=detail.edge_flow))
-        why = why.merge(certs, how='left')
         why = why[why.flow > 0].set_index(['voter', 'subject'])
         return who, why.sort_index()
 
