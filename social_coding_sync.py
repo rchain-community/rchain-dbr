@@ -121,9 +121,11 @@ def main(argv, cwd, now, run, build_opener, create_engine):
         log.info('trust count by rating:\n%s', by_rating)
 
     elif opt['trust_view']:
-        states = TrustCert.viz(io.db())
+        certs = TrustCert.get_certs(io.db())
+        seed, good_nodes = TrustCert.doc_params(opt)
+        info = TrustCert.viz(certs, seed, good_nodes)
         with (cwd / opt['--view']).open('w') as fp:
-            json.dump(states, fp, indent=2)
+            json.dump(info, fp, indent=2)
 
     elif opt['db_bak']:
         with io.bak_file(now, cwd / opt['--bak-dir']) as dest:
@@ -224,7 +226,9 @@ class WSGI_App(object):
         return parse_qs(request_body)
 
     def trust_net(self, start_response):
-        net = TrustCert.viz(self.__io.db())
+        certs = TrustCert.get_certs(self.__io.db())
+        seed, good_nodes = TrustCert.doc_params()
+        net = TrustCert.viz(certs, seed, good_nodes)
         start_response('200 OK', JSON)
         return [json.dumps(net, indent=2).encode('utf-8')]
 
@@ -544,10 +548,7 @@ class TrustCert(object):
 
     @classmethod
     def update_results(cls, dbr, seed, good_nodes):
-        certs = pd.read_sql('''
-            select voter, subject, rating, cert_time
-            from {table}
-        '''.format(table=cls.table), dbr)
+        certs = cls.get_certs(dbr)
         trusted = cls.trust_ratings(certs, seed, good_nodes)
 
         last_cert = certs.groupby('subject')[['cert_time']].max()
@@ -556,6 +557,13 @@ class TrustCert(object):
         trusted.to_sql('authorities', if_exists='replace', con=dbr,
                        dtype=noblob(trusted))
         return trusted
+
+    @classmethod
+    def get_certs(cls, dbr):
+        return pd.read_sql('''
+            select voter, subject, rating, cert_time
+            from {table}
+        '''.format(table=cls.table), dbr)
 
     @classmethod
     def _certs_from_reactions(cls, reactions, users):
@@ -773,29 +781,68 @@ class TrustCert(object):
                 for level in range(max_level + 1)]
 
     @classmethod
-    def viz(cls, dbr):
-        users = pd.read_sql(
-            '''
-            select login, convert(verified_coop, char) member_snowflake
-                 , coalesce(rating, -1) as rating, rating_label, weight, sig
-            from user_flair u
-            order by u.login
-            ''', dbr)
-        nodes = [dict(u, id=ix,
-                      rating=None if u.rating < 0 else u.rating)
-                 for ix, u in users.iterrows()]
-        certs = pd.read_sql(
-            'select voter, subject, coalesce(rating, -1) rating from trust_cert', dbr)
-        users.index.name = 'id'
-        byLogin = users.reset_index().set_index('login')
-        certs['from_'] = byLogin.loc[certs.voter].id.values
-        certs['to_'] = byLogin.loc[certs.subject].id.values
-        edges = [{'from': c.from_, 'to': c.to_,
-                  'rating': c.rating if c.rating >= 0 else None }
-                 for _, c in certs.iterrows()]
+    def viz(cls, certs, seed, good_nodes):
+        """Format trust metric info for visualization.
+
+        >>> certs = MockIO.certs()
+        >>> seed = certs.voter[:2]
+        >>> info = TrustCert.viz(certs, seed, [18, 9, 5])
+        >>> import pprint
+        >>> pprint.pprint(info)
+        ... # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
+        {'flow': [(1,
+                   [{'index': 0, 'login': '<superseed>'},
+                    {'index': 1, 'login': 'aunt-q'},
+                    {'index': 2, 'login': 'aunt-x'},
+                    ...
+                    {'index': 17, 'login': 'ms-z'}],
+                   [{'flow': 10, 'subject': 'judge-p', 'voter': '<superseed>'},
+                    {'flow': 7, 'subject': 'judge-x', 'voter': '<superseed>'},
+                    {'flow': 1, 'subject': 'aunt-q', 'voter': 'judge-p'},
+                    ...
+                    {'flow': 1, 'subject': 'ms-q', 'voter': 'mr-z'}]),
+                  (2,
+                   ...
+                    {'flow': 1, 'subject': 'mr-z', 'voter': 'judge-x'}]),
+                  (3,
+                   [{'index': 0, 'login': '<superseed>'},
+                    {'index': 1, 'login': 'aunt-q'},
+                    {'index': 2, 'login': 'judge-p'},
+                    {'index': 3, 'login': 'judge-x'},
+                    {'index': 4, 'login': 'mr-y'}],
+                   [{'flow': 1, 'subject': 'judge-p', 'voter': '<superseed>'},
+                    {'flow': 3, 'subject': 'judge-x', 'voter': '<superseed>'},
+                    {'flow': 2, 'subject': 'mr-y', 'voter': 'judge-x'},
+                    {'flow': 1, 'subject': 'aunt-q', 'voter': 'mr-y'}])],
+         'nodes': [{'login': 'aunt-q', 'rating': 3},
+                   {'login': 'aunt-x', 'rating': 1},
+                   {'login': 'aunt-y', 'rating': 1},
+                   ...
+                   {'login': 'ms-z', 'rating': 1}]}
+
+        Check that it's JSON-serializable:
+
+        >>> import json
+        >>> _ = json.dumps(info)
+        """
+        trusted = cls.trust_ratings(certs, seed, good_nodes)
+        flow = [
+            (rating, who, why)
+            for rating in cls.ratings
+            for edges in [certs[certs.rating >= rating]]
+            for (who, why) in [
+                    cls.net_flow(edges, seed, good_nodes[rating - 1])]
+        ]
+
+        def plain(df):
+            return df.reset_index().to_dict('records')
+
         return {
-            "nodes": nodes,
-            "edges": edges
+            "nodes": plain(trusted),
+            "flow": [
+                (rating, plain(who), plain(why))
+                for rating, who, why in flow
+            ]
         }
 
 
