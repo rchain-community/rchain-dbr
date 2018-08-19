@@ -29,8 +29,8 @@ Options:
 .. note: This line separates usage notes above from design notes below.
 
     >>> io = MockIO()
-    >>> run = lambda cmd: main(cmd.split(),
-    ...                        io.cwd, io.build_opener, io.create_engine)
+    >>> run = lambda cmd: main(cmd.split(), io.cwd, io.now, io.run,
+    ...                        io.build_opener, io.create_engine)
     >>> from pprint import pprint
 
     >>> run('script.py issues_fetch')
@@ -735,10 +735,18 @@ class MockIO(object):
     def __init__(self, path='.', web_ua=False):
         self.path = path
         self.web_ua = web_ua
+        self._ran = []
 
     @property
     def cwd(self):
         return MockIO('.')
+
+    def now(self):
+        from datetime import datetime
+        return datetime(2001, 1, 1, 1, 2, 3)
+
+    def run(self, *argv):
+        self._ran.append(argv)
 
     def __truediv__(self, other):
         from posixpath import join
