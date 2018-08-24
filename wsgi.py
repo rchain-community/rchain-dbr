@@ -14,28 +14,33 @@ def build_app():
     from datetime import datetime
     from pathlib import Path
     from subprocess import run
+    from tempfile import NamedTemporaryFile
     from traceback import format_exc  # ISSUE: ambient
     from urllib.request import build_opener
 
     from sqlalchemy import create_engine
 
     _configure_logging()
-    app = socsync.WSGI_App(Path('conf.ini'),
-                           datetime.now, run,
-                           build_opener, create_engine)
+    app = socsync.WSGI_App(
+        Path('conf.ini'),
+        datetime.now, run, build_opener, NamedTemporaryFile,
+        create_engine)
     wrap = error_middleware(format_exc, app)
     return wrap
 
 
-OOPS='''
+OOPS = '''
 <h1>Oops!</h1>
 
 <p>An error has been logged.</p>
 
 <p>Please report the problem to
-<a href="https://discordapp.com/channels/375365542359465989/418562733727023114">#bounties</a>
+<a href=
+"https://discordapp.com/channels/375365542359465989/418562733727023114"
+>#bounties</a>
  in RChain-pub discord.</p>
 '''
+
 
 def error_middleware(format_exc, app):
     def err_app(env, start_response):

@@ -30,7 +30,8 @@ Options:
 
     >>> io = MockIO()
     >>> run = lambda cmd: main(cmd.split(), io.cwd, io.now, io.run,
-    ...                        io.build_opener, io.create_engine)
+    ...                        io.build_opener, io.create_engine,
+    ...                        io.NamedTemporaryFile)
     >>> from pprint import pprint
 
     >>> run('script.py issues_fetch')
@@ -43,6 +44,7 @@ Options:
 
 from cgi import parse_qs, escape
 from configparser import SafeConfigParser
+from contextlib import contextmanager
 from datetime import timedelta
 from io import BytesIO, StringIO
 from math import ceil
@@ -68,7 +70,7 @@ HTML8 = [('Content-Type', 'text/html; charset=utf-8')]
 JSON = [('Content-Type', 'application/json')]
 
 
-def main(argv, cwd, now, run, build_opener, create_engine):
+def main(argv, cwd, now, run, build_opener, create_engine, NamedTemporaryFile):
     log.debug('argv: %s', argv)
     opt = docopt(USAGE, argv=argv[1:])
     log.debug('opt: %s', opt)
@@ -80,7 +82,7 @@ def main(argv, cwd, now, run, build_opener, create_engine):
                  what, path)
         return path.open(mode=mode)
 
-    io = IO(create_engine, build_opener, cwd / opt['--config'])
+    io = IO(create_engine, build_opener, NamedTemporaryFile, cwd / opt['--config'])
 
     if opt['issues_fetch']:
         Issues(io.opener(), io.tok()).fetch_to_cache(cache_open)
@@ -154,8 +156,9 @@ class WSGI_App(object):
         </form>
         '''
 
-    def __init__(self, config_path, now, run, build_opener, create_engine):
-        io = IO(create_engine, build_opener, config_path)
+    def __init__(self, config_path, now, run, build_opener, mktemp,
+                 create_engine):
+        io = IO(create_engine, build_opener, mktemp, config_path)
         self.__io = io
 
         def db_bak():
@@ -238,10 +241,11 @@ class WSGI_App(object):
 
 
 class IO(object):
-    def __init__(self, create_engine, build_opener, config_path):
+    def __init__(self, create_engine, build_opener, mktemp, config_path):
         self.__config_path = config_path
         self.__create_engine = create_engine
         self.__build_opener = build_opener
+        self.__mktemp = mktemp
         self.__config = None
 
     @property
@@ -260,6 +264,42 @@ class IO(object):
         url = self._cp.get('_database', 'db_url')
         url = url.strip('"')  # PHP needs ""s for %(interp)s
         return self.__create_engine(url)
+
+    @contextmanager
+    def _db_defaults(self):
+        with self.__mktemp(mode='w') as defaults_file:
+            defaults = self._db_password_config()
+            defaults.write(defaults_file)
+            defaults_file.flush()
+            yield defaults_file
+
+    def _db_password_config(self):
+        """Wrap DB password in mysql style configuration.
+
+        Suppose we have the usual configuration:
+
+        >>> io = MockIO.makeIO()
+
+        Then we can get a mysql style configuration:
+
+        >>> defaults = io._db_password_config()
+
+        This is what it looks like:
+
+        >>> from io import StringIO
+        >>> buf = StringIO()
+        >>> defaults.write(buf)
+        >>> print(buf.getvalue(), end='')
+        [client]
+        password = sekret
+        <BLANKLINE>
+
+        """
+        password = self._cp.get('_database', 'password')
+        defaults = SafeConfigParser()
+        defaults['client'] = {}
+        defaults['client']['password'] = password
+        return defaults
 
     def bak_file(self, now, storage):
         if not storage.exists():
@@ -287,14 +327,13 @@ class IO(object):
         # Tell mysqldump to get password from config file:
         # https://stackoverflow.com/a/6861458
         # http://dev.mysql.com/doc/refman/5.1/en/password-security-user.html
-        default_password = '--defaults-file=%s' % self.__config_path.resolve()
-
-        cmd = [self.mysqldump, default_password,
-               '--host=%s' % url.host, '--port=%s' % url.port, '--compress',
-               '--user=%s' % url.username, '-r', str(dest), url.database]
-        log.info('backing up %s to: %s', url.database, dest)
-        log.debug('%s', cmd)
-        run(cmd, input=url.password.encode('utf-8'))
+        with self._db_defaults() as defaults:
+            cmd = [self.mysqldump, '--defaults-file=' + defaults.name,
+                   '--host=%s' % url.host, '--port=%s' % url.port, '--compress',
+                   '--user=%s' % url.username, '-r', str(dest), url.database]
+            log.info('backing up %s to: %s', url.database, dest)
+            log.debug('%s', cmd)
+            run(cmd, input=url.password.encode('utf-8'))
 
         dest_gz = dest.with_suffix('.sql.gz')
         log.info('compressing to %s', dest_gz)
@@ -722,6 +761,7 @@ class MockIO(object):
         '''
         [_database]
         db_url: sqlite:///
+        password: sekret
 
         [github_repo]
         read_token: SEKRET
@@ -736,6 +776,12 @@ class MockIO(object):
         self.path = path
         self.web_ua = web_ua
         self._ran = []
+
+    @classmethod
+    def makeIO(cls):
+        it = cls()
+        return IO(it.create_engine, it.build_opener,
+                  it.NamedTemporaryFile, it / 'conf.ini')
 
     @property
     def cwd(self):
@@ -768,6 +814,10 @@ class MockIO(object):
     def create_engine(self, db_url):
         from sqlalchemy import create_engine
         return create_engine('sqlite:///')
+
+    @contextmanager
+    def NamedTemporaryFile(self, mode='wb'):
+        yield self / 'tempfile1'
 
 
 class MockFP(StringIO):
@@ -815,6 +865,7 @@ if __name__ == '__main__':
         from pathlib import Path
         from subprocess import run
         from sys import argv
+        from tempfile import NamedTemporaryFile
         from urllib.request import build_opener
 
         from sqlalchemy import create_engine
@@ -822,6 +873,7 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO)
         main(argv, cwd=Path('.'), run=run, now=datetime.now,
              build_opener=build_opener,
+             NamedTemporaryFile=NamedTemporaryFile,
              create_engine=create_engine)
 
     _script()
