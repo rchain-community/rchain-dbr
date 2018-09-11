@@ -17,7 +17,7 @@ Options:
                     and _databse.db_url
                     [default: conf.ini]
   --seed=NAMES      login names (comma separated) of trust seed
-                    [default: dckc,Jake-Gillberg,kitblake]
+                    [default: dckc,deannald,PatrickM727]
   --good_nodes=XS   qty of good nodes for each rating (comma separated)
                     [default: 60,30,20]
   --view=FILE       filename for social network visualization
