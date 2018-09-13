@@ -10,25 +10,28 @@ Usage:
   social_coding_sync [options] trust_unseed
   social_coding_sync [options] trusted
   social_coding_sync [options] trust_view
+  social_coding_sync [options] db_bak
 
 Options:
   --config=FILE     config file with github_repo.read_token
                     and _databse.db_url
                     [default: conf.ini]
   --seed=NAMES      login names (comma separated) of trust seed
-                    [default: dckc,Jake-Gillberg,kitblake]
+                    [default: dckc,deannald,PatrickM727]
   --good_nodes=XS   qty of good nodes for each rating (comma separated)
-                    [default: 45,25,15]
+                    [default: 60,30,20]
   --view=FILE       filename for social network visualization
                     [default: ,states.js]
   --cache=DIR       directory for query results [default: cache]
+  --bak-dir=DIR     directory for database dumps [default: bak]
   --voter=NAME      test voter for logging [default: dckc]
 
 .. note: This line separates usage notes above from design notes below.
 
     >>> io = MockIO()
-    >>> run = lambda cmd: main(cmd.split(),
-    ...                        io.cwd, io.build_opener, io.create_engine)
+    >>> run = lambda cmd: main(cmd.split(), io.cwd, io.now, io.run,
+    ...                        io.build_opener, io.create_engine,
+    ...                        io.NamedTemporaryFile)
     >>> from pprint import pprint
 
     >>> run('script.py issues_fetch')
@@ -41,10 +44,14 @@ Options:
 
 from cgi import parse_qs, escape
 from configparser import SafeConfigParser
+from contextlib import contextmanager
+from datetime import timedelta
 from io import BytesIO, StringIO
 from math import ceil
+from shutil import copyfileobj
 from string import Template
 from urllib.request import Request
+import gzip
 import json
 import logging
 
@@ -63,7 +70,7 @@ HTML8 = [('Content-Type', 'text/html; charset=utf-8')]
 JSON = [('Content-Type', 'application/json')]
 
 
-def main(argv, cwd, build_opener, create_engine):
+def main(argv, cwd, now, run, build_opener, create_engine, NamedTemporaryFile):
     log.debug('argv: %s', argv)
     opt = docopt(USAGE, argv=argv[1:])
     log.debug('opt: %s', opt)
@@ -75,7 +82,7 @@ def main(argv, cwd, build_opener, create_engine):
                  what, path)
         return path.open(mode=mode)
 
-    io = IO(create_engine, build_opener, cwd / opt['--config'])
+    io = IO(create_engine, build_opener, NamedTemporaryFile, cwd / opt['--config'])
 
     if opt['issues_fetch']:
         Issues(io.opener(), io.tok()).fetch_to_cache(cache_open)
@@ -120,6 +127,10 @@ def main(argv, cwd, build_opener, create_engine):
         with (cwd / opt['--view']).open('w') as fp:
             json.dump(states, fp, indent=2)
 
+    elif opt['db_bak']:
+        with io.bak_file(now, cwd / opt['--bak-dir']) as dest:
+            io.db_bak(run, dest)
+
 
 class WSGI_App(object):
     template = '''
@@ -137,10 +148,24 @@ class WSGI_App(object):
         <form action='trust_cert' method='post'>
         <input type='submit' value='Update Trust Ratings' />
         </form>
+        <h2>Database Dump</h2>
+        <p><em>Allow 30 seconds or so for a response.</em></p>
+        <p><strong>Dumps may be pruned after 15 minutes.</strong></p>
+        <form action='db_dump' method='post'>
+        <input type='submit' value='Dump DB' />
+        </form>
         '''
 
-    def __init__(self, create_engine, build_opener, config_path):
-        self.__io = IO(create_engine, build_opener, config_path)
+    def __init__(self, config_path, now, run, build_opener, mktemp,
+                 create_engine):
+        io = IO(create_engine, build_opener, mktemp, config_path)
+        self.__io = io
+
+        def db_bak():
+            with io.bak_file(now, config_path.parent / 'bak') as dest:
+                return io.db_bak(run, dest)
+
+        self.__db_bak = db_bak
 
     def __call__(self, environ, start_response):
         [path, method] = [environ.get(n)
@@ -163,6 +188,8 @@ class WSGI_App(object):
             elif path == '/trust_cert':
                 params = self._post_params(environ)
                 return self.cert_recalc(start_response, params)
+            elif path == '/db_dump':
+                return self.db_dump(start_response)
         start_response('404 not found', PLAIN)
         return [('cannot find %r' % path).encode('utf-8')]
 
@@ -175,6 +202,14 @@ class WSGI_App(object):
         data = cls(io.opener(), io.tok()).sync_data(io.db())
         start_response('200 ok', PLAIN)
         return [('%d records' % len(data)).encode('utf-8')]
+
+    def db_dump(self, start_response):
+        dest = self.__db_bak()
+        mb = 1024 * 1024
+        size_mb = round(dest.stat().st_size * 1.0 / mb, 2)
+        start_response('200 ok', HTML8)
+        return [('<p>db dump result: <a href="/%s">%s</a> %s Mb</p>' %
+                 (dest, dest.name, size_mb)).encode('utf-8')]
 
     def cert_recalc(self, start_response, params):
         seed, good_nodes = TrustCert.doc_params()
@@ -206,10 +241,11 @@ class WSGI_App(object):
 
 
 class IO(object):
-    def __init__(self, create_engine, build_opener, config_path):
+    def __init__(self, create_engine, build_opener, mktemp, config_path):
         self.__config_path = config_path
         self.__create_engine = create_engine
         self.__build_opener = build_opener
+        self.__mktemp = mktemp
         self.__config = None
 
     @property
@@ -228,6 +264,84 @@ class IO(object):
         url = self._cp.get('_database', 'db_url')
         url = url.strip('"')  # PHP needs ""s for %(interp)s
         return self.__create_engine(url)
+
+    @contextmanager
+    def _db_defaults(self):
+        with self.__mktemp(mode='w') as defaults_file:
+            defaults = self._db_password_config()
+            defaults.write(defaults_file)
+            defaults_file.flush()
+            yield defaults_file
+
+    def _db_password_config(self):
+        """Wrap DB password in mysql style configuration.
+
+        Suppose we have the usual configuration:
+
+        >>> io = MockIO.makeIO()
+
+        Then we can get a mysql style configuration:
+
+        >>> defaults = io._db_password_config()
+
+        This is what it looks like:
+
+        >>> from io import StringIO
+        >>> buf = StringIO()
+        >>> defaults.write(buf)
+        >>> print(buf.getvalue(), end='')
+        [client]
+        password = sekret
+        <BLANKLINE>
+
+        """
+        password = self._cp.get('_database', 'password')
+        defaults = SafeConfigParser()
+        defaults['client'] = {}
+        defaults['client']['password'] = password
+        return defaults
+
+    def bak_file(self, now, storage):
+        if not storage.exists():
+            storage.mkdir()
+        t = now()
+        self._prune(storage, t)
+        return (storage / str(t)).with_suffix('.sql')
+
+    @classmethod
+    def _prune(self, storage, t,
+               threshold=15):
+        cutoff = t - timedelta(seconds=threshold * 60)
+        for old_dump in storage.glob('*.sql'):
+            if old_dump.name < str(cutoff):
+                log.info('removing dump older than %s: %s', cutoff, old_dump)
+                old_dump.unlink()
+
+    mysqldump = 'mysqldump'
+
+    def db_bak(self, run, dest):
+        url = sqla.engine.url.make_url(self._cp.get('_database', 'db_url').strip('"'))
+        if dest.exists():
+            raise IOError('backup destination exists: %s' % dest)
+
+        # Tell mysqldump to get password from config file:
+        # https://stackoverflow.com/a/6861458
+        # http://dev.mysql.com/doc/refman/5.1/en/password-security-user.html
+        with self._db_defaults() as defaults:
+            cmd = [self.mysqldump, '--defaults-file=' + defaults.name,
+                   '--host=%s' % url.host, '--port=%s' % url.port, '--compress',
+                   '--user=%s' % url.username, '-r', str(dest), url.database]
+            log.info('backing up %s to: %s', url.database, dest)
+            log.debug('%s', cmd)
+            run(cmd, input=url.password.encode('utf-8'))
+
+        dest_gz = dest.with_suffix('.sql.gz')
+        log.info('compressing to %s', dest_gz)
+        with dest.open('rb') as f_in:
+            with gzip.GzipFile(fileobj=dest_gz.open('wb'), mode='wb') as f_out:
+                copyfileobj(f_in, f_out)
+        dest.unlink()
+        return dest_gz
 
     def tok(self):
         return self._cp.get('github_repo', 'read_token')
@@ -647,6 +761,7 @@ class MockIO(object):
         '''
         [_database]
         db_url: sqlite:///
+        password: sekret
 
         [github_repo]
         read_token: SEKRET
@@ -660,10 +775,24 @@ class MockIO(object):
     def __init__(self, path='.', web_ua=False):
         self.path = path
         self.web_ua = web_ua
+        self._ran = []
+
+    @classmethod
+    def makeIO(cls):
+        it = cls()
+        return IO(it.create_engine, it.build_opener,
+                  it.NamedTemporaryFile, it / 'conf.ini')
 
     @property
     def cwd(self):
         return MockIO('.')
+
+    def now(self):
+        from datetime import datetime
+        return datetime(2001, 1, 1, 1, 2, 3)
+
+    def run(self, *argv):
+        self._ran.append(argv)
 
     def __truediv__(self, other):
         from posixpath import join
@@ -685,6 +814,10 @@ class MockIO(object):
     def create_engine(self, db_url):
         from sqlalchemy import create_engine
         return create_engine('sqlite:///')
+
+    @contextmanager
+    def NamedTemporaryFile(self, mode='wb'):
+        yield self / 'tempfile1'
 
 
 class MockFP(StringIO):
@@ -728,14 +861,19 @@ class MockResponse(BytesIO):
 
 if __name__ == '__main__':
     def _script():
-        from sys import argv
-        from urllib.request import build_opener
+        from datetime import datetime
         from pathlib import Path
+        from subprocess import run
+        from sys import argv
+        from tempfile import NamedTemporaryFile
+        from urllib.request import build_opener
+
         from sqlalchemy import create_engine
 
         logging.basicConfig(level=logging.INFO)
-        main(argv, cwd=Path('.'),
+        main(argv, cwd=Path('.'), run=run, now=datetime.now,
              build_opener=build_opener,
+             NamedTemporaryFile=NamedTemporaryFile,
              create_engine=create_engine)
 
     _script()

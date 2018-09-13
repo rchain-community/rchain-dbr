@@ -72,6 +72,7 @@ before delete on reward_vote for each row begin
   call ensure_vote_current(old.issue_num, old.pay_period);
 end
 //
+drop trigger current_edit_bv_update;
 create trigger current_edit_bv_update
 before update on budget_vote for each row begin
   call ensure_vote_current(old.issue_num, old.pay_period);
@@ -80,6 +81,7 @@ before update on budget_vote for each row begin
   end if;
 end
 //
+drop trigger current_edit_rv_update;
 create trigger current_edit_rv_update
 before update on reward_vote for each row begin
   call ensure_vote_current(old.issue_num, old.pay_period);
