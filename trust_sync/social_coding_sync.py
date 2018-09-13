@@ -15,7 +15,7 @@ Usage:
 Options:
   --config=FILE     config file with github_repo.read_token
                     and _databse.db_url
-                    [default: conf.ini]
+                    [default: ../conf.ini]
   --seed=NAMES      login names (comma separated) of trust seed
                     [default: dckc,deannald,PatrickM727]
   --good_nodes=XS   qty of good nodes for each rating (comma separated)
