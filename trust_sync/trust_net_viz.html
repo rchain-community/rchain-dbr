@@ -40,14 +40,15 @@
       <input type='submit' value='Update Trust Ratings' />
     </form>
 
-    <div id="mynetwork"><em>stand by...</em></div>
+    <div id="mynetwork"><em>stand by...</em><strong id="err"></strong></div>
 
     <script type="text/javascript" src="net_viz.js"></script>
     <script type="text/javascript">
       const s_net = makeSocialNetwork(
           () => new XMLHttpRequest(),
           document.getElementById('mynetwork'));
-      s_net.fetch().then(net => s_net.draw(net));
+      s_net.fetch().then(net => s_net.draw(net))
+        .catch(oops => { document.getElementById('err').textContent = oops.statusText; });
     </script>
 
     <hr />
