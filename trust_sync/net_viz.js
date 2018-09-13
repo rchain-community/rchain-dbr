@@ -1,4 +1,4 @@
-function makeSocialNetwork(makeXHR, container) {
+function makeSocialNetwork(makeXHR) {
     function fetch() {
 	return new Promise(function (resolve, reject) {
 	    const xhr = makeXHR();
@@ -9,14 +9,14 @@ function makeSocialNetwork(makeXHR, container) {
 		} else {
 		    reject({
 			status: this.status,
-			statusText: xhr.statusText
+			message: xhr.statusText
 		    });
 		}
 	    };
 	    xhr.onerror = function () {
 		reject({
 		    status: this.status,
-		    statusText: xhr.statusText
+		    message: xhr.statusText
 		});
 	    };
 	    xhr.send();
@@ -24,34 +24,40 @@ function makeSocialNetwork(makeXHR, container) {
     }
 
 
-    function draw(net) {
+    function draw(net, rating, container) {
 	// colors get darker like karate belts
 	const colors = [
 	    '#f0f0f0', // "white belt"
 	    'khaki', // apprentice
 	    'orange', // journeyer
-	    'grey' // master
+	    'darkgray' // master
 	];
 
 	// create an array with nodes
+        const ratingByLogin = new Map(net.nodes.map(n => [n.login, n.rating]));
+        const [_rating, who, why] = net.flow[rating - 1];
 	const nodes = new vis.DataSet(
-	    net.nodes.map(
-		n => Object.assign(n, {
+	    who.map(
+  	        n => ({
+                    id: n.login,
 		    color: {
-			background: colors[n.rating] || '#f0f0f0',
+			background: colors[ratingByLogin.get(n.login)] || '#f0f0f0',
 			border: 'black'
 		    },
-		    label: n.sig,
-		})
+		    label: n.login,
+	        })
 	    ));
 
-	// create an array with edges
+        // create an array with edges
 	const edges = new vis.DataSet(
-	    net.edges.map(
-		e => Object.assign(e, {
+	    why.map(
+	        e => ({
+                    'from': e.voter,
+                    'to': e.subject,
+                    label: e.flow.toString(),
 		    arrows: 'to',
-		    color: {color: colors[e.rating]},
-		})
+		    color: {color: colors[rating]},
+	        })
 	    ));
 
 	var data = {
