@@ -1,6 +1,7 @@
 *~
 .idea
 __pycache__
+.env
 bin/
 cache/
 composer-setup.php
@@ -13,6 +14,7 @@ templates_c/
 vendor/
 xataface-2.1.3/
 node_modules/
-/capper.config
-/capper.db
+o2r/capper.config
+o2r/capper.db
+o2r/ssl
 201*.sql
