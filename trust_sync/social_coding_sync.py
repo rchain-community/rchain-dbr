@@ -769,7 +769,7 @@ class MockIO(object):
     ])
 
     fs = {
-        './conf.ini': config
+        './../conf.ini': config
     }
 
     def __init__(self, path='.', web_ua=False):
@@ -781,7 +781,7 @@ class MockIO(object):
     def makeIO(cls):
         it = cls()
         return IO(it.create_engine, it.build_opener,
-                  it.NamedTemporaryFile, it / 'conf.ini')
+                  it.NamedTemporaryFile, it / '../conf.ini')
 
     @property
     def cwd(self):

@@ -2,7 +2,7 @@ function makeSocialNetwork(makeXHR, container) {
     function fetch() {
 	return new Promise(function (resolve, reject) {
 	    const xhr = makeXHR();
-	    xhr.open("GET", "aux/trust_net");
+	    xhr.open("GET", "/aux/trust_net");
 	    xhr.onload = function () {
 		if (this.status >= 200 && this.status < 300) {
 		    resolve(JSON.parse(xhr.response));
