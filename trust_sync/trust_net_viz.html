@@ -59,10 +59,17 @@
     <hr />
 
     <div class="tabbed-area">
+      <div id="tab0">
+        <a href="#tab0">Certs</a>
+        <div id="net-0" class="net-diagram">
+          <em>stand by...</em><strong id="err"></strong>
+        </div>
+      </div>
+
       <div id="tab1">
         <a href="#tab1">Apprentice</a>
         <div id="net-1" class="net-diagram">
-          <em>stand by...</em><strong id="err"></strong>
+          <em>stand by...</em></strong>
         </div>
       </div>
 
@@ -84,7 +91,8 @@
       const s_net = makeSocialNetwork(() => new XMLHttpRequest());
       const byId = i => document.getElementById(i);
       s_net.fetch().then(net => {
-        ratings.forEach((r) => { s_net.draw(net, r, byId(`net-${r}`)); } )
+        s_net.drawCerts(net, byId('net-0'));
+        ratings.forEach((r) => { s_net.drawFlow(net, r, byId(`net-${r}`)); } );
       })
       .catch(oops => {
         document.getElementById('err').textContent = oops.message;

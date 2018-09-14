@@ -796,7 +796,7 @@ class TrustCert(object):
         who = pd.DataFrame([
             dict(login=login)
             for login, value in sorted(detail.extract().items())
-            if login != 'superseed' and value > 0
+            if login != cls.superseed and value > 0
         ])
         why = pd.DataFrame(dict(
             voter=detail.edge_src,
@@ -878,8 +878,10 @@ class TrustCert(object):
 
         return {
             "nodes": plain(trusted),
+            # ISSUE: last_cert is not JSON serializable
+            "certs": plain(certs[['voter', 'subject', 'rating']]),
             "flow": [
-                (rating, plain(who), plain(why))
+                {"rating": rating, "who": plain(who), "why": plain(why)}
                 for rating, who, why in flow
             ]
         }

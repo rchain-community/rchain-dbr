@@ -24,57 +24,71 @@ function makeSocialNetwork(makeXHR) {
     }
 
 
-    function draw(net, rating, container) {
-	// colors get darker like karate belts
-	const colors = [
-	    '#f0f0f0', // "white belt"
-	    'khaki', // apprentice
-	    'orange', // journeyer
-	    'darkgray' // master
-	];
+    // colors get darker like karate belts
+    const colors = [
+	'#f0f0f0', // "white belt"
+	'khaki', // apprentice
+	'orange', // journeyer
+	'darkgray' // master
+    ];
 
-	// create an array with nodes
-        const ratingByLogin = new Map(net.nodes.map(n => [n.login, n.rating]));
-        const [_rating, who, why] = net.flow[rating - 1];
-	const nodes = new vis.DataSet(
-	    who.map(
-  	        n => ({
-                    id: n.login,
-		    color: {
-			background: colors[ratingByLogin.get(n.login)] || '#f0f0f0',
-			border: 'black'
-		    },
-		    label: n.login,
-	        })
-	    ));
-
-        // create an array with edges
-	const edges = new vis.DataSet(
-	    why.map(
-	        e => ({
-                    'from': e.voter,
-                    'to': e.subject,
-                    label: e.flow.toString(),
-		    arrows: 'to',
-		    color: {color: colors[rating]},
-	        })
-	    ));
-
-	var data = {
-	    nodes: nodes,
-	    edges: edges
-	};
-	var options = {
-	    interaction: {
-		navigationButtons: true,
-		keyboard: true
-	    }
-	};
-	var network = new vis.Network(container, data, options);
+    function nodes(net) {
+	return net.nodes.map(
+  	    n => ({
+                id: n.login,
+		color: {
+		    background: colors[n.rating] || '#f0f0f0',
+		    border: 'black'
+		},
+		label: n.login,
+	    })
+	);
     }
 
-    return Object.freeze({
-	fetch: fetch,
-	draw: draw
-    });
+    function drawCerts(net, container) {
+	const edges = net.certs.map(
+	    e => ({
+                'from': e.voter,
+                'to': e.subject,
+		arrows: 'to',
+		color: {color: colors[e.rating]},
+	    })
+	);
+        render(nodes(net), edges, container);
+    }
+
+    function drawFlow(net, rating, container) {
+        const { who, why } = net.flow[rating - 1];
+        const seed = { id: '<superseed>', label: '<superseed>' };
+        const logins = who.map(n => n.login);
+
+	const edges = why.map(
+	    e => ({
+                'from': e.voter,
+                'to': e.subject,
+                label: e.flow.toString(),
+		arrows: 'to',
+		color: {color: colors[rating]},
+	    })
+	);
+        render(nodes(net).filter(n => logins.includes(n.id)).concat([seed]),
+               edges, container);
+    }
+
+    function render(nodes, edges, container) {
+	var network = new vis.Network(
+            container,
+            {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            },
+            {
+	        interaction: {
+		    navigationButtons: true,
+		    keyboard: true
+	        }
+	    });
+    }
+
+    return Object.freeze({ fetch, drawCerts, drawFlow });
 }
