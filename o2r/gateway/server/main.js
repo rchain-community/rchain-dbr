@@ -60,9 +60,11 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
   passport.serializeUser((user, done) => done(null, user));
   passport.deserializeUser((obj, done) => done(null, obj));
 
+  // ISSUE: state parameter
+  // https://discordapp.com/developers/docs/topics/oauth2#state-and-security
   const strategies = {
     github: opts => new github.Strategy(opts, verify),
-    discord: opts => new discord.Strategy(Object.assign({ scope: 'identity' }, opts), verify),
+    discord: opts => new discord.Strategy({ scope: ['identify'], ...opts}, verify),
   };
 
   return def({ oauthClient });
@@ -97,6 +99,7 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
     }
 
     function use() {
+      console.log(state.game.label(), 'adding authorize route:', state.path, state.opts.callbackPath);
       const strategy = state.strategy;
       const makeStrategy = strategies[strategy];
       if (!makeStrategy) {
@@ -116,6 +119,7 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
         opts.callbackPath,
         passport.authenticate(strategy, { failureRedirect: '/auth-failure-@@' }),
         (req, res) => {
+          console.log('successful auth:', req.user);
           const session = state.game.sessionFor(req.user);
           const sessionAddr = sturdyPath(session);
           res.redirect(sessionAddr);
@@ -125,6 +129,7 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
   }
 
   function verify(accessToken, refreshToken, profile, done) {
+    console.log('verify:', { profile });
     done(null, {
       username: profile.username,
       displayName: profile.displayName,
