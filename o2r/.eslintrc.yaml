@@ -20,6 +20,20 @@ rules:
   no-use-before-define:
     - error
     - nofunc
+  prefer-destructuring:
+    - error
+    # { x } = y doesn't parse
+    - AssignmentExpression:
+        array: false
+        object: false
+  indent:
+    - error
+    - 2
+    # emacs compat
+    -
+      CallExpression:
+        arguments: first
+      MemberExpression: off
   object-curly-newline:
     - error
     -
