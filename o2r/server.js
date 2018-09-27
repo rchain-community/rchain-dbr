@@ -31,16 +31,16 @@ Usage:
 Options:
  REVIVER                app reviver; e.g. gateway.gateway
  --conf FILE            specification of protocol (http / https), domain, and
- port of this service, in JSON.
-   [default: capper.config]
+                        port of this service, in JSON.
+                        [default: capper.config]
  --ssl DIR              where to find SSL server.key, server.crt, ca.crt
- if protocol is https
- [default: ./ssl]
+                        if protocol is https
+                        [default: ./ssl]
  --db FILE              persistent object storage
- [default: capper.db]
+                        [default: capper.db]
  --grpc-host NAME       Where to contact rnode gRPC service [default: localhost]
  --grpc-port NUM        Where to contact rnode gRPC service [default: 40401]
-   -h --help              show usage
+ -h --help              show usage
 
 ISSUE: add option to list all REVIVERs?
   ISSUE: help on each REVIVER?
