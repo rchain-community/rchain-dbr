@@ -49,7 +49,7 @@ ISSUE: add option to list all REVIVERs?
 const def = obj => Object.freeze(obj);
 
 
-function main(argv, { fs, join, clock, randomBytes, https, express, passport, grpc }) {
+function main(argv, { fs, join, clock, randomBytes, http, https, express, passport, grpc }) {
   const unique = Capper.caplib.makeUnique(randomBytes);
 
   const cli = docopt(usage, { argv: argv.slice(2) });
@@ -98,8 +98,14 @@ function main(argv, { fs, join, clock, randomBytes, https, express, passport, gr
       // reserve the homepage before Capper does
       app.get('/', home);
 
-      Capper.run(argv, config, reviver0, saver,
-                 rd('--ssl'), https.createServer, expressWrap);
+      if (config.domain.split(':')[0] === 'http') {
+        console.log('WARNING! no SSL');
+        Capper.runNaked(config, reviver0, saver,
+                        http.createServer, expressWrap);
+      } else {
+        Capper.run(argv, config, reviver0, saver,
+                   rd('--ssl'), https.createServer, expressWrap);
+      }
 
       console.log('server started...');
     }
@@ -145,9 +151,10 @@ if (require.main === module) {
          randomBytes: require('crypto').randomBytes,
          // Access to the clock is primitive.
          clock: () => new Date(),
-         // If node's https module followed ocap discipline, it would
+         // If node's http module followed ocap discipline, it would
          // have us pass in capabilities to make TCP connections.
          // But it doesn't, so we treat it as primitive.
+         http: require('http'),
          https: require('https'),
          // If express followed ocap discipine, we would pass it
          // access to files and the network and such.
