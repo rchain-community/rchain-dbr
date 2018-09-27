@@ -22,25 +22,25 @@ webkey, whose state includes a key pair for use on RChain.
 Then visit that webkey URL in your browser to configure the rest.
 
 Usage:
-server.js [options] list
-server.js [options] make REVIVER [ARG...]
-server.js [options] post WEBKEY METHOD [ARG...]
-server.js [options] drop WEBKEY
-server.js [options]
+  server.js [options] list
+  server.js [options] make REVIVER [ARG...]
+  server.js [options] post WEBKEY METHOD [ARG...]
+  server.js [options] drop WEBKEY
+  server.js [options]
 
 Options:
-REVIVER                app reviver; e.g. gateway.gateway
---conf FILE            specification of protocol (http / https), domain, and
-port of this service, in JSON.
-  [default: capper.config]
---ssl DIR              where to find SSL server.key, server.crt, ca.crt
-if protocol is https
-[default: ./ssl]
---db FILE              persistent object storage
-[default: capper.db]
---grpc-host NAME       Where to contact rnode gRPC service [default: localhost]
---grpc-port NUM        Where to contact rnode gRPC service [default: 40401]
-  -h --help              show usage
+ REVIVER                app reviver; e.g. gateway.gateway
+ --conf FILE            specification of protocol (http / https), domain, and
+ port of this service, in JSON.
+   [default: capper.config]
+ --ssl DIR              where to find SSL server.key, server.crt, ca.crt
+ if protocol is https
+ [default: ./ssl]
+ --db FILE              persistent object storage
+ [default: capper.db]
+ --grpc-host NAME       Where to contact rnode gRPC service [default: localhost]
+ --grpc-port NUM        Where to contact rnode gRPC service [default: 40401]
+   -h --help              show usage
 
 ISSUE: add option to list all REVIVERs?
   ISSUE: help on each REVIVER?
