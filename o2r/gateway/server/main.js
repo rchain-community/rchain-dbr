@@ -8,16 +8,43 @@
 
     ISSUE: indirect to SecretService for CLIENT_SECRET?
 */
+// @flow strict
 const URL = require('url').URL;
 
 const discord = require('passport-discord');
 const github = require('passport-github');
 const rnodeAPI = require('rchain-api');
 
+const { once, persisted, ready } = require('../../capper_start');
 const keyPair = require('./keyPair');
+const { rho } = require('./rhoTemplate');
 
-const def = obj => Object.freeze(obj); // cf. ocap design note
+const def = Object.freeze; // cf. ocap design note
 
+/*::
+import type { $Application } from 'express';
+import type passportT from 'passport';
+
+import type { Context, Sturdy, Persistent } from '../../capper_start';
+import type { GameBoard } from './gameSession';
+
+export opaque type Strategy = 'github' | 'discord';
+export opaque type ClientSecret = string;
+export interface OAuthClient {
+}
+interface OAuthClientP extends Persistent {
+  init(pathM: mixed, callbackPathM: mixed, strategyM: mixed,
+       id: mixed, secret: mixed, gameM: mixed): void
+}
+
+type Powers = {
+   app: $Application,
+   passport : passportT,
+   baseURL : string,
+   setSignIn: (string) => void,
+   sturdyPath: (mixed) => string,
+}
+*/
 
 /**
  * Construct Capper app for RChain OAuth oracle.
@@ -28,7 +55,7 @@ const def = obj => Object.freeze(obj); // cf. ocap design note
  * baseURL: base URL for mounting OAuth login, callback URLs
  */
 exports.appFactory = appFactory;
-function appFactory({ app, passport, baseURL, setSignIn, sturdyPath }) {
+function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers*/) {
   app.use(passport.initialize());
   passport.serializeUser((user, done) => done(null, user));
   passport.deserializeUser((obj, done) => done(null, obj));
@@ -40,8 +67,8 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath }) {
 
   return def({ oauthClient });
 
-  function oauthClient(context) {
-    let state; // state.X throws until init()
+  function oauthClient(context /*: Context<*> */) /*: OAuthClientP */ {
+    let state;
     if ('strategy' in context.state) {
       state = context.state;
       use();
@@ -54,17 +81,18 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath }) {
       clientId: () => state.id,
     });
 
-    function init(path, callbackPath, strategy, id, secret, game) {
+    function init(pathM, callbackPathM, strategyM, id, secret, gameM) {
+      once(state);
       state = context.state;
       // console.log('client init:', { path, callbackPath, strategy, id });
-      state.path = path;
-      state.strategy = strategy;
+      state.path = persisted(pathM);
+      state.strategy = persisted(strategyM);
       state.opts = {
-        callbackPath,
+        callbackPath: persisted(callbackPathM),
         clientID: id,
         clientSecret: secret,
       };
-      state.game = game;
+      state.game = persisted(gameM);
 
       use();
     }
@@ -107,10 +135,10 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath }) {
 }
 
 
-function trustCertTest(argv, { clock, randomKeyPair, grpc }) {
+function trustCertTest(argv, { clock, randomBytes, grpc }) {
   const [_node, _script, host, portNum] = argv; // GRPC peer
   const port = parseInt(portNum, 10);
-  const { logged, RSON } = rnodeAPI;
+  const { logged, RHOCore } = rnodeAPI;
 
   const cert1 = {
     voter: 'dckc',
@@ -119,17 +147,18 @@ function trustCertTest(argv, { clock, randomKeyPair, grpc }) {
     cert_time: clock().toISOString(),
   };
 
-  const gatewayKey = keyPair.appFactory({ randomKeyPair })
-        .keyPair({ state: {} });
+  // $FlowFixMe: too lazy to stub drop, make
+  const context1 /*: Context<*> */ = { state: {} };
+  const gatewayKey = keyPair.appFactory({ randomBytes })
+        .keyPair(context1);
   gatewayKey.init('gateway 1 key');
   console.log(gatewayKey, gatewayKey.publicKey());
 
-  const rchain = rnodeAPI.clientFactory({ grpc, clock })
-        .casperClient({ host, port });
+  const rchain = rnodeAPI.RNode(grpc, { host, port });
 
-  const certSigHex = gatewayKey.signBytesHex(rchain.toByteArray(RSON.fromData(cert1)));
+  const certSigHex = gatewayKey.signBytesHex(RHOCore.toByteArray(RHOCore.fromJSData(cert1)));
   const certTerm = logged(
-    `@"certify"!(${RSON.stringify(RSON.fromData(cert1))}, ${JSON.stringify(certSigHex)})`,
+    rho`@"certify"!(${cert1}, ${certSigHex})`,
     'certTerm',
   );
   rchain.doDeploy(certTerm).then((result) => {
@@ -151,7 +180,7 @@ if (require.main === module) {
     {
       grpc: require('grpc'),
       clock: () => new Date(),
-      randomKeyPair: require('tweetnacl').sign.keyPair,
+      randomBytes: require('crypto').randomBytes,
     },
   );
 }

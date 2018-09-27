@@ -2,10 +2,10 @@
 
     See also: CONTRIBUTING.md design notes on Capper and webkeys
     as well as ocap discipline.
-
-    ISSUE: add @flow static types
 */
+// @flow strict
 
+// $FlowFixMe ISSUE: flow strict in capper
 const Capper = require('Capper');
 const docopt = require('docopt').docopt;
 const rnodeAPI = require('rchain-api');
@@ -49,16 +49,15 @@ ISSUE: add option to list all REVIVERs?
 const def = obj => Object.freeze(obj);
 
 
-function main(argv, { fs, path, clock, crypto, https, express, passport, grpc }) {
-  const unique = Capper.caplib.makeUnique(crypto.randomBytes);
+function main(argv, { fs, join, clock, randomBytes, https, express, passport, grpc }) {
+  const unique = Capper.caplib.makeUnique(randomBytes);
 
   const cli = docopt(usage, { argv: argv.slice(2) });
   // console.log('DEBUG: cli:', cli);
 
-  const dbfile = Capper.fsSyncAccess(fs, path.join, cli['--db']);
-  const rd = arg => Capper.fsReadAccess(fs, path.join, cli[arg]);
-  const rnode = rnodeAPI.clientFactory({ grpc, clock });
-  const rchain = rnode.casperClient({
+  const dbfile = Capper.fsSyncAccess(fs, join, cli['--db']);
+  const rd = arg => Capper.fsReadAccess(fs, join, cli[arg]);
+  const rchain = rnodeAPI.RNode(grpc, {
     host: cli['--grpc-host'],
     port: parseInt(cli['--grpc-port'], 10),
   });
@@ -70,7 +69,7 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, grpc })
     const expressWrap = () => app;
     const apps = def({
       gateway: gateway.appFactory({ app, passport, setSignIn, sturdyPath, baseURL: config.domain }),
-      keyChain: keyPair.appFactory({ randomBytes: crypto.randomBytes }),
+      keyChain: keyPair.appFactory({ randomBytes: randomBytes }),
       game: gameSession.appFactory('game', { clock, rchain }),
     });
 
@@ -83,9 +82,11 @@ function main(argv, { fs, path, clock, crypto, https, express, passport, grpc })
         console.log(`app: ${reviver}`);
         Object.keys(apps[reviver]).forEach((method) => {
           console.log(`app reviver: ${reviver}.${method}`);
+          // $FlowFixMe
           const maker = apps[reviver][method];
 
           if ('usage' in maker) {
+            // $FlowFixMe
             console.log('args: ', maker.usage);
           }
         });
@@ -138,10 +139,10 @@ if (require.main === module) {
          // Opening a file based on filename is a primitive effect.
          fs: require('fs'),
          // path.join is platform-specific and hence a primitive effect.
-         path: require('path'),
+         join: require('path').join,
          // Random number generation is primitive (typically implemented
          // as access to a special file, /dev/urandom).
-         crypto: require('crypto'),
+         randomBytes: require('crypto').randomBytes,
          // Access to the clock is primitive.
          clock: () => new Date(),
          // If node's https module followed ocap discipline, it would

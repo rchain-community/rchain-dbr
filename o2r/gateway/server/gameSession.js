@@ -4,10 +4,72 @@
     (e.g. via OAuth), your moves will be signed and deployed to RChain.
 
 */
+// @flow strict
 
-const { RSON, logged } = require('rchain-api');
+const { RHOCore, logged } = require('rchain-api');
 
-const def = obj => Object.freeze(obj);
+const { rho } = require('./rhoTemplate');
+const { ready, once, persisted } = require('../../capper_start');
+
+/*:: // ISSUE: belongs in RChain-API
+import { RNode } from 'rchain-api';
+opaque type Rholang = string;
+type RChain = $Call<typeof RNode, mixed, { host: string, port: number }>
+*/
+
+/*::
+import type { Context, Persistent } from '../../capper_start';
+import type { Hex, PublicKey, Signature } from './keyPair';
+import type { Strategy, ClientSecret, OAuthClient } from './main';
+
+interface GameSession {
+  info(): {
+    created: TimeInMs,
+    userProfile: UserProfile,
+    gameLabel: string,
+    gameKey: Hex<PublicKey>,
+  },
+  select(tablename: string): Record[],
+  merge(tablename: string, record: Record): Promise<MergeResult>
+};
+
+interface GameSessionP extends Persistent, GameSession {
+  init(maybeUserProfile: mixed, maybeGame: mixed): void
+}
+
+export interface GameBoard {
+  select(tablename: string): Record[],
+  merge(tablename: string, record: Record): Promise<MergeResult>,
+  makeSignIn(path: string, callbackPath: string, strategy: Strategy, id: string, secret: ClientSecret): OAuthClient,
+  sessionFor(userProfile: UserProfile): GameSession,
+  label(): string,
+  publicKey(): Hex<PublicKey>
+}
+
+interface GameBoardP extends Persistent, GameBoard {
+}
+
+type UserProfile = {
+  id: string
+};
+
+opaque type TimeInMs = number;
+
+type Record = { [string]: mixed };
+
+type MergeResult = {
+  turnSig: Hex<Signature>,
+  takeTurnTerm: Rholang,
+  recordKey: mixed[],
+};
+
+type GamePowers = {
+  clock: () => Date,
+  rchain: RChain,
+}
+*/
+
+const def = Object.freeze;
 
 // ISSUE: TODO: get peers to rate from github / discord
 const mockDB = {
@@ -30,40 +92,44 @@ const mockDB = {
 
 
 module.exports.appFactory = appFactory;
-function appFactory(parent, { clock, rchain }) {
+function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
   return def({ gameSession, gameBoard });
 
-  function gameSession(context) {
-    let state = context.state ? context.state : null; // state.X throws until init()
+  function gameSession(context /*: Context<*> */) /*: GameSessionP */ {
+    let state = context.state ? context.state : null;
 
-    function init(userProfile, game) {
+    function init(userProfileM, gameM) {
+      once(state);
       state = context.state;
-      state.userProfile = userProfile;
-      state.game = game;
+      state.userProfile = persisted(userProfileM);
+      state.game = persisted(gameM);
       state.created = clock().valueOf(); // persist as millis
     }
 
     return def({
       init,
       info,
-      select: (...arg) => state.game.select(...arg),
-      merge: (...arg) => state.game.merge(...arg),
+      select: tableName => ready(state).game.select(tableName),
+      merge: (tableName, record) => ready(state).game.merge(tableName, record),
     });
 
     function info() {
+      const stateOK = ready(state);
       return def({
-        created: state.created,
-        userProfile: state.userProfile,
-        gameLabel: state.game.label(),
-        gameKey: state.game.publicKey(),
+        created: stateOK.created,
+        userProfile: stateOK.userProfile,
+        gameLabel: stateOK.game.label(),
+        gameKey: stateOK.game.publicKey(),
       });
     }
   }
 
-  function gameBoard(context) {
-    let state = context.state ? context.state : null; // state.X throws until init()
+  function gameBoard(context /*: Context<*> */) /*: GameBoard */ {
+    let state = context.state ? context.state : null;
 
-    function init(label) {
+    function init(label /*: mixed*/) {
+      if (state) { throw new TypeError('do not call init() more than once.'); }
+      if (typeof label !== 'string') { throw new TypeError('label must be string'); }
       state = context.state;
       state.label = label;
       state.gameKey = context.make('keyChain.keyPair', `for ${label}`);
@@ -71,8 +137,8 @@ function appFactory(parent, { clock, rchain }) {
       // ISSUE: TODO: state.peers = ... from github
     }
 
-    const label = () => state.label;
-    const publicKey = () => state.gameKey.publicKey();
+    const label = () => ready(state).label;
+    const publicKey = () => ready(state).gameKey.publicKey();
     const self = def({ init, select, merge, makeSignIn, sessionFor, label, publicKey });
     return self;
 
@@ -84,7 +150,7 @@ function appFactory(parent, { clock, rchain }) {
 
     function sessionFor(userProfile) {
       const { id } = userProfile;
-      const { players } = state;
+      const { players } = ready(state);
       let session = players[id];
       if (!session) {
         session = context.make(`${parent}.gameSession`, userProfile, self);
@@ -93,16 +159,21 @@ function appFactory(parent, { clock, rchain }) {
       return session;
     }
 
-    function select(tablename) {
+    function select(tablename /*: string*/) /*: Record[] */ {
       const table = mockDB[tablename];
       if (!table) {
         throw new Error(`unknown table: ${tablename}`);
       }
 
-      return Object.values(table.records);
+      return values(table.records);
     }
 
-    function merge(tablename, record) {
+    /* typesafe version of Object.values */
+    function values(o) {
+      return Object.keys(o).map(p => o[p]);
+    }
+
+    function merge(tablename /*: string*/, record /*: { [string]: mixed } */) {
       if (tablename !== 'trust_cert') {
         throw new Error(`not implemented: ${tablename}`);
       }
@@ -110,15 +181,11 @@ function appFactory(parent, { clock, rchain }) {
       const table = mockDB[tablename];
       const recordKey = table.key.map(field => record[field]);
 
-      const rholang = obj => RSON.stringify(RSON.fromData(obj));
-      const gameKey = state.gameKey;
+      const gameKey = ready(state).gameKey;
 
-      const gameTerm = rholang(state.gameKey.publicKey());
-      const turnMsg = RSON.fromData(['merge', tablename, record]);
-      const turnTerm = RSON.stringify(turnMsg);
-      const turnSig = gameKey.signBytesHex(rchain.toByteArray(turnMsg));
-      const turnSigTerm = rholang(turnSig);
-      const takeTurnTerm = `@"takeTurn"!(${gameTerm}, ${turnTerm}, ${turnSigTerm}, "stdout")`;
+      const turnMsg = ['merge', tablename, record];
+      const turnSig = gameKey.signDataHex(turnMsg);
+      const takeTurnTerm = rho`@"takeTurn"!(${gameKey.publicKey()}, ${turnMsg}, ${turnSig}, "stdout")`;
 
       console.log('@@deploying:', takeTurnTerm);
       return rchain.doDeploy(takeTurnTerm).then((result) => {
