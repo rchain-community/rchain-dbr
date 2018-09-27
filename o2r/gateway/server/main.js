@@ -15,7 +15,7 @@ const discord = require('passport-discord');
 const github = require('passport-github');
 const rnodeAPI = require('rchain-api');
 
-const { once, persisted, ready } = require('../../capper_start');
+const { once, persisted } = require('../../capper_start');
 const keyPair = require('./keyPair');
 const { rho } = require('./rhoTemplate');
 
@@ -68,9 +68,8 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
   return def({ oauthClient });
 
   function oauthClient(context /*: Context<*> */) /*: OAuthClientP */ {
-    let state;
+    const state = context.state;
     if ('strategy' in context.state) {
-      state = context.state;
       use();
     }
 
@@ -83,7 +82,7 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
 
     function init(pathM, callbackPathM, strategyM, id, secret, gameM) {
       once(state);
-      state = context.state;
+
       // console.log('client init:', { path, callbackPath, strategy, id });
       state.path = persisted(pathM);
       state.strategy = persisted(strategyM);

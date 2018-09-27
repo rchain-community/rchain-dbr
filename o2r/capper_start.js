@@ -121,15 +121,9 @@ function makeReviver(apps /*: { [string]: { [string]: mixed } } */) /*: Reviver 
     });
 }
 
-module.exports.ready = ready;
-function ready/*:: <T>*/(state/*: T | null*/) /*: T*/{
-  if (!state) { throw new TypeError('must call init() first'); }
-  return state;
-}
-
 module.exports.once = once;
-function once/*:: <T>*/(state/*: T | null*/) /*: void*/{
-  if (state) { throw new TypeError('do not call init() more than once.'); }
+function once/*:: <T: {}>*/(state/*: T | {| |}*/) /*: void*/{
+  if (Object.keys(state).length > 0) { throw new TypeError('do not call init() more than once.'); }
 }
 
 /**

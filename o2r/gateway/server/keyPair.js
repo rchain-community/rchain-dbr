@@ -13,7 +13,7 @@ const rchain = require('rchain-api');
 // ack: https://stackoverflow.com/a/46870568
 const inspect = require('util').inspect;
 
-const { ready, once } = require('../../capper_start');
+const { once } = require('../../capper_start');
 
 /*::  // ISSUE: belongs in rchain-api?
 
@@ -59,20 +59,19 @@ function appFactory({ randomBytes } /*: KeyGenPowers */) {
   return def({ keyPair });
 
   function keyPair(context /*: Context<*> */) {
-    let state = context.state ? context.state : null;
+    const state = context.state;
 
     function init(label /*: string*/) {
       once(state);
       const seed = randomBytes(32);
       const key = rchain.keyPair(seed);
 
-      state = context.state;
       state.label = label;
-      state.publicKey = b2h(key.publicKey);
+      state.publicKey = key.publicKey();
       state.seed = b2h(seed);
     }
 
-    const toString = () => `<keyPair ${ready(state).label}: ${ready(state).publicKey.substring(0, 12)}...>`;
+    const toString = () => `<keyPair ${state.label}: ${state.publicKey.substring(0, 12)}...>`;
 
     return def({
       init,
@@ -82,13 +81,13 @@ function appFactory({ randomBytes } /*: KeyGenPowers */) {
       signText: text => getKey().signText(text),
       signTextHex: text => getKey().signTextHex(text),
       signDataHex: item => getKey().signBytesHex(toByteArray(fromJSData(item))),
-      publicKey: () => ready(state).publicKey,
-      label: () => ready(state).label,
+      publicKey: () => state.publicKey,
+      label: () => state.label,
       [inspect.custom]: toString,
     });
 
     function getKey() {
-      return rchain.keyPair(h2b(ready(state).seed));
+      return rchain.keyPair(h2b(state.seed));
     }
   }
 }

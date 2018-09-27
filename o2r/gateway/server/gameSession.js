@@ -9,7 +9,7 @@
 const { RHOCore, logged } = require('rchain-api');
 
 const { rho } = require('./rhoTemplate');
-const { ready, once, persisted } = require('../../capper_start');
+const { once, persisted } = require('../../capper_start');
 
 /*:: // ISSUE: belongs in RChain-API
 import { RNode } from 'rchain-api';
@@ -96,11 +96,11 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
   return def({ gameSession, gameBoard });
 
   function gameSession(context /*: Context<*> */) /*: GameSessionP */ {
-    let state = context.state ? context.state : null;
+    const state = context.state;
 
     function init(userProfileM, gameM) {
       once(state);
-      state = context.state;
+
       state.userProfile = persisted(userProfileM);
       state.game = persisted(gameM);
       state.created = clock().valueOf(); // persist as millis
@@ -109,26 +109,25 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
     return def({
       init,
       info,
-      select: tableName => ready(state).game.select(tableName),
-      merge: (tableName, record) => ready(state).game.merge(tableName, record),
+      select: tableName => state.game.select(tableName),
+      merge: (tableName, record) => state.game.merge(tableName, record),
     });
 
     function info() {
-      const stateOK = ready(state);
       return def({
-        created: stateOK.created,
-        userProfile: stateOK.userProfile,
-        gameLabel: stateOK.game.label(),
-        gameKey: stateOK.game.publicKey(),
+        created: state.created,
+        userProfile: state.userProfile,
+        gameLabel: state.game.label(),
+        gameKey: state.game.publicKey(),
       });
     }
   }
 
   function gameBoard(context /*: Context<*> */) /*: GameBoard */ {
-    let state = context.state ? context.state : null;
+    let state = context.state;
 
     function init(label /*: mixed*/) {
-      if (state) { throw new TypeError('do not call init() more than once.'); }
+      once(state);
       if (typeof label !== 'string') { throw new TypeError('label must be string'); }
       state = context.state;
       state.label = label;
@@ -137,8 +136,8 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       // ISSUE: TODO: state.peers = ... from github
     }
 
-    const label = () => ready(state).label;
-    const publicKey = () => ready(state).gameKey.publicKey();
+    const label = () => state.label;
+    const publicKey = () => state.gameKey.publicKey();
     const self = def({ init, select, merge, makeSignIn, sessionFor, label, publicKey });
     return self;
 
@@ -150,7 +149,7 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
 
     function sessionFor(userProfile) {
       const { id } = userProfile;
-      const { players } = ready(state);
+      const { players } = state;
       let session = players[id];
       if (!session) {
         session = context.make(`${parent}.gameSession`, userProfile, self);
@@ -181,7 +180,7 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       const table = mockDB[tablename];
       const recordKey = table.key.map(field => record[field]);
 
-      const gameKey = ready(state).gameKey;
+      const gameKey = state.gameKey;
 
       const turnMsg = ['merge', tablename, record];
       const turnSig = gameKey.signDataHex(turnMsg);
