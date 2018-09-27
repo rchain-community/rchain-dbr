@@ -134,16 +134,6 @@ class conf_ApplicationDelegate {
 
     function block__before_left_column() {
         $site = DATAFACE_SITE_HREF;
-        echo <<<EOT
-<ul>
-  <li><a href='https://github.com/rchain/bounties/wiki/How-To-Use-the-Budget-Rewards-Web-App'>Help / How-To</a></li>
-  <ul>
-    <li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>
-  </ul>
-  <li><a href='aux/user'><b>Sync</b> Users / Issues</a></li>
-  <li><a href='trust_net_viz.html'>Community Trust Network</a></li>
-EOT;
-
         $auth =& Dataface_AuthenticationTool::getInstance();
         $user =& $auth->getLoggedInUser();
         if (isset($user)) {
@@ -154,8 +144,17 @@ EOT;
         }
 
         $current = substr(str_replace('-', '', current_pay_period()), 0, 6);
-        echo "<li>current: <b>$current</b></li>";
-        echo "</ul>";
+        echo "<ul><li>current: <b>$current</b></li>";
+        echo <<<EOT
+  <li><a href='https://github.com/rchain/bounties/wiki/How-To-Use-the-Budget-Rewards-Web-App'>Help / How-To</a>, <a href='https://github.com/rchain/bounties/wiki/VotingTrouble'>VotingTrouble</a></li>
+  <ul>
+    <li><a href='https://github.com/rchain/bounties/blob/master/CONTRIBUTING.md'>Bounty Process</a></li>
+  </ul>
+  <li><a href='aux/user'><b>Sync</b></li>
+  <li><a href='trust_sync/trust_net_viz.html'>Trust Network</a></li>
+</ul>
+EOT;
+
     }
 }
 
@@ -207,6 +206,10 @@ function ro_field() {
     $perms['view']=1;
     $perms['list']=1;
     return $perms;
+}
+
+function link_markup($href, $content) {
+		return '<a href="'.htmlspecialchars($href).'" >'.$content.'</a>';
 }
 
 ?>

@@ -36,15 +36,21 @@ select issue_num, title
     , budget_provisional, voter_qty, voters, pay_period, labels
 from (
 	select bv.issue_num, i.title, i.labels
-	     , count(distinct uf.verified_coop) voter_qty
-	     , group_concat(uf.sig separator ', ') voters
-	     , round(sum(bv.amount * uf.weight) / sum(uf.weight), 2) budget_provisional
+	     , count(distinct verified_coop) voter_qty
+	     , group_concat(sig separator ', ') voters
+	     , round(sum(bv.amount * weight) / sum(weight), 2) budget_provisional
              , bv.pay_period
 	from issue i
-	    join budget_vote bv on bv.issue_num = i.num
-	    join user_flair uf on uf.login = bv.voter and uf.verified_coop is not null
-	    join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=1
-	where uf.weight > 0
+ 	join (
+	  select coalesce(bv.weight, uf.weight) weight
+	       , concat(bv.voter, '*', coalesce(bv.weight, uf.weight)) sig
+	       , uf.verified_coop
+	       , bv.issue_num, bv.pay_period, bv.amount
+	  from budget_vote bv
+	  join user_flair uf on uf.login = bv.voter
+          where uf.verified_coop is not null
+	) bv on bv.issue_num = i.num
+        join pay_period pp on pp.start_date = bv.pay_period and pp.weighted=1
 	group by bv.pay_period, i.num, i.title
 ) ea
 ;
@@ -112,26 +118,34 @@ select issue_num, title
      , pay_period, labels
 from (
 	select ib.pay_period, ib.issue_num, ib.title, ib.labels, rv.worker
-	     , count(distinct uf.verified_coop) voter_qty
-	     , group_concat(uf.sig separator ', ') voters
+	     , count(distinct verified_coop) voter_qty
+	     , group_concat(sig separator ', ') voters
              , ib.budget_provisional
              , ib.budget_usd
-	     , round(sum(rv.percent * uf.weight) / sum(uf.weight), 2) percent_avg
-	     , round(sum(rv.percent * uf.weight) / sum(uf.weight) / 100 * ib.budget_provisional) reward_provisional
-	     , round(sum(rv.percent * uf.weight) / sum(uf.weight) / 100 * ib.budget_usd) reward_usd_1
+	     , round(sum(rv.percent * weight) / sum(weight), 2) percent_avg
+	     , round(sum(rv.percent * weight) / sum(weight) / 100 * ib.budget_provisional) reward_provisional
+	     , round(sum(rv.percent * weight) / sum(weight) / 100 * ib.budget_usd) reward_usd_1
 	from issue_budget_wt ib
-	join reward_vote rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
-        join user_flair uf on uf.login = rv.voter
-	where uf.verified_coop is not null and uf.weight > 0
+	join (
+	  select coalesce(rv.weight, uf.weight) weight
+	       , concat(rv.voter, '*', coalesce(rv.weight, uf.weight)) sig
+	       , uf.verified_coop
+	       , rv.issue_num, rv.pay_period, rv.percent, rv.worker
+	  from reward_vote rv
+	  join user_flair uf on uf.login = rv.voter
+          where uf.verified_coop is not null
+	) rv on rv.issue_num = ib.issue_num and rv.pay_period = ib.pay_period
 	group by ib.pay_period, ib.issue_num, ib.title, rv.worker
 ) ea
 ;
 -- eyeball it: select * from reward_wt order by voter_qty desc;
 create or replace view reward as
-select * from reward_unwt
-union all
-select * from reward_wt;
-
+select * from reward_fixed
+union all select * from (
+  select * from reward_unwt
+  union all
+  select * from reward_wt
+) dyn where dyn.pay_period >= (select current_pay_period from admin_settings);
 
 create or replace view task_approval_overdue as
 select i.* from (
