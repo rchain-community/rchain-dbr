@@ -34,17 +34,17 @@ function gameUI(gameBoard, $) {
 	.flatMap(fields => Bacon.fromPromise(gameBoard.post(
 	    'makeSignIn',
   	    fields.path, fields.callbackPath,
-            fields.provider, fields.locus, fields.role,
-	    fields.id, fields.secret))
+            fields.provider, fields.locus, fields.role, fields.token,
+            fields.id, fields.secret))
 		 .log('makeClient')
 		 .zip(Bacon.once(fields), (c, f) => [c, f])).log('@@flatMap |> zip')
 	.onValue(addClient);
 
-    function addClient([it, {path, strategy, id}]) {
+    function addClient([it, {path, provider, id}]) {
         $('#clients').append(
             $('<a />',
               {href: it.webkey,
-               text: `${path}: ${strategy}: ${id}`})
+               text: `${path}: ${provider}: ${id}`})
                 .wrap('<li />').parent());
     }
 }

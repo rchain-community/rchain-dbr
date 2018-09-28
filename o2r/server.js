@@ -68,7 +68,7 @@ function main(argv, { fs, join, clock, randomBytes, http, https, express, passpo
     const app = express();
     const expressWrap = () => app;
     const apps = def({
-      gateway: gateway.appFactory({ app, passport, setSignIn, sturdyPath, baseURL: config.domain }),
+      gateway: gateway.appFactory({ app, passport, setSignIn, sturdyPath, get: https.get, baseURL: config.domain }),
       keyChain: keyPair.appFactory({ randomBytes: randomBytes }),
       game: gameSession.appFactory('game', { clock, rchain }),
     });

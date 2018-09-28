@@ -151,9 +151,10 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       };
       const maker = makers[String(provider)]
       if (!maker) { throw new Error(`unknown provider: ${String(provider)}`); }
+      console.log('makeSignIn:', { path, callbackPath, locus, role, token, id, secret, provider, maker, self });
       return context.make(maker,
                           path, callbackPath,
-                          provider, locus, role, token,
+                          locus, role, token,
                           id, secret, self);
     }
 

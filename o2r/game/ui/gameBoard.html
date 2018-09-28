@@ -13,10 +13,14 @@ fieldset.tidy label b {
     text-align: right;
 }
 fieldset.tidy input {
-  display: inline-block;
-  float: left;
-    }
+    display: inline-block;
+    float: left;
+    margin-bottom: 4px;
+}
 
+fieldset.tidy div label:last-child input {
+    margin-bottom: 12px;
+}
 </style>
 </head>
 <body>
@@ -24,6 +28,7 @@ fieldset.tidy input {
 
   <fieldset class="tidy">
     <legend>New OAuth2 Client</legend>
+    <div>
     <label><b>Provider:</b>
       <select id="provider">
 	<option>github</option>
@@ -31,15 +36,20 @@ fieldset.tidy input {
       </select>
     </label>
     <hr />
-    <label><b>Path:</b> <input id="path" /></label>
+    </div>
+    <div>
+    <label><b>Route Path:</b> <input id="path" /></label>
+    </div>
+    <div>
     <label><b>Callback Path:</b> <input id="callbackPath" /></label>
-    <hr />
     <label><b>Client Id:</b> <input id="clientID" /></label>
     <label><b>Client Secret:</b> <input id="clientSecret" type="password" /></label>
-    <hr />
+    </div>
+    <div>
     <label><b>Repo / Server:</b> <input id="locus" /></label>
     <label><b>Token:</b> <input id="token" type="password" /></label>
     <label><b>Role:</b> <input id="role" /></label>
+    </div>
     <br clear="all" />
     <div><label><b><button id="makeSignIn">Create</button></b></label></div>
   </fieldset>
