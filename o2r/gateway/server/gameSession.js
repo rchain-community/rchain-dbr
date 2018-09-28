@@ -20,7 +20,7 @@ type RChain = $Call<typeof RNode, mixed, { host: string, port: number }>
 /*::
 import type { Context, Persistent } from '../../capper_start';
 import type { Hex, PublicKey, Signature } from './keyPair';
-import type { Strategy, ClientSecret, OAuthClient } from './main';
+import type { Provider, Token, OAuthClient } from './main';
 
 interface GameSession {
   info(): {
@@ -40,7 +40,9 @@ interface GameSessionP extends Persistent, GameSession {
 export interface GameBoard {
   select(tablename: string): Record[],
   merge(tablename: string, record: Record): Promise<MergeResult>,
-  makeSignIn(path: string, callbackPath: string, strategy: Strategy, id: string, secret: ClientSecret): OAuthClient,
+  makeSignIn(path: string, callbackPath: string,
+             provider: Provider, locus: string, role: string, token: Token,
+             id: string, secret: Token): OAuthClient,
   sessionFor(userProfile: UserProfile): GameSession,
   label(): string,
   publicKey(): Hex<PublicKey>
@@ -49,9 +51,10 @@ export interface GameBoard {
 interface GameBoardP extends Persistent, GameBoard {
 }
 
+// cribbed from https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/passport/index.d.ts#L130
 type UserProfile = {
-  id: string
-};
+  id: string,
+}
 
 opaque type TimeInMs = number;
 
@@ -141,10 +144,11 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
     const self = def({ init, select, merge, makeSignIn, sessionFor, label, publicKey });
     return self;
 
-    function makeSignIn(path, callbackPath, strategy, id, secret) {
+    function makeSignIn(path, callbackPath, provider, locus, role, token, id, secret) {
       return context.make('gateway.oauthClient', // ISSUE: hard-code gateway?
                           path, callbackPath,
-                          strategy, id, secret, self);
+                          provider, locus, role, token,
+                          id, secret, self);
     }
 
     function sessionFor(userProfile) {

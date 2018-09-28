@@ -5,7 +5,10 @@ function gameUI(gameBoard, $) {
     const ui = {
 	path: $('#path'),
 	callbackPath: $('#callbackPath'),
-	strategy: $('#strategy'),
+	provider: $('#provider'),
+	locus: $('#locus'),
+	role: $('#role'),
+	token: $('#token'),
 	id: $('#clientID'),
 	secret: $('#clientSecret'),
 	makeSignIn: $('#makeSignIn')
@@ -21,13 +24,17 @@ function gameUI(gameBoard, $) {
 	.map(_ => ({
 	    path: ui.path.val(),
 	    callbackPath: ui.callbackPath.val(),
-	    strategy: ui.strategy.val(),
+	    provider: ui.provider.val(),
+	    locus: ui.locus.val(),
+	    role: ui.role.val(),
+	    token: ui.token.val(),
 	    id: ui.id.val(),
 	    secret: ui.secret.val()
 	})).log('fields')
 	.flatMap(fields => Bacon.fromPromise(gameBoard.post(
 	    'makeSignIn',
-	    fields.path, fields.callbackPath, fields.strategy,
+  	    fields.path, fields.callbackPath,
+            fields.provider, fields.locus, fields.role,
 	    fields.id, fields.secret))
 		 .log('makeClient')
 		 .zip(Bacon.once(fields), (c, f) => [c, f])).log('@@flatMap |> zip')

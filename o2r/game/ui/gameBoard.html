@@ -24,16 +24,22 @@ fieldset.tidy input {
 
   <fieldset class="tidy">
     <legend>New OAuth2 Client</legend>
-    <label><b>Strategy:</b>
-      <select id="strategy">
+    <label><b>Provider:</b>
+      <select id="provider">
 	<option>github</option>
 	<option>discord</option>
       </select>
     </label>
+    <hr />
     <label><b>Path:</b> <input id="path" /></label>
     <label><b>Callback Path:</b> <input id="callbackPath" /></label>
+    <hr />
     <label><b>Client Id:</b> <input id="clientID" /></label>
     <label><b>Client Secret:</b> <input id="clientSecret" type="password" /></label>
+    <hr />
+    <label><b>Repo / Server:</b> <input id="locus" /></label>
+    <label><b>Token:</b> <input id="token" type="password" /></label>
+    <label><b>Role:</b> <input id="role" /></label>
     <br clear="all" />
     <div><label><b><button id="makeSignIn">Create</button></b></label></div>
   </fieldset>

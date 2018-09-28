@@ -28,12 +28,12 @@ import type passportT from 'passport';
 import type { Context, Sturdy, Persistent } from '../../capper_start';
 import type { GameBoard } from './gameSession';
 
-export opaque type Strategy = 'github' | 'discord';
-export opaque type ClientSecret = string;
+export opaque type Provider = 'github' | 'discord';
+export opaque type Token = string;
 export interface OAuthClient {
 }
 interface OAuthClientP extends Persistent {
-  init(pathM: mixed, callbackPathM: mixed, strategyM: mixed,
+  init(pathM: mixed, callbackPathM: mixed, providerM: mixed,
        id: mixed, secret: mixed, gameM: mixed): void
 }
 
@@ -44,6 +44,51 @@ type Powers = {
    setSignIn: (string) => void,
    sturdyPath: (mixed) => string,
 }
+
+type DiscordRoleNeeded = {
+  provider: 'discord',
+  botToken: Token,
+  guildID: string,
+  roleID: string,
+}
+
+type GithubRepoAccessNeeded = {
+  provider: 'github',
+  repository: string,
+  role: 'WRITE' | 'ADMIN',
+}
+
+type OState = {
+  path: string,
+  opts: {
+   callbackPath: string,
+   callbackURL?: string,
+   clientID: string,
+   clientSecret: Token,
+  },
+  privilege: DiscordRoleNeeded | GithubRepoAccessNeeded,
+  game: GameBoard,
+};
+
+// https://discordapp.com/developers/docs/resources/user
+interface DiscordUser {
+  id: string, // ISSUE: opaque snowflake type?
+  username: string,
+  discriminator: string, // 4 digit discord-tag
+  avatar: ?string,
+  bot?: bool,
+  mfa_enabled?: bool,
+  locale?: string,
+  verified?: bool,
+  email?: string
+}
+
+// ISSUE: look up github docs
+interface GithubAccount {
+  username: string,
+  displayName: string,
+}
+
 */
 
 /**
@@ -62,80 +107,149 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
 
   // ISSUE: state parameter
   // https://discordapp.com/developers/docs/topics/oauth2#state-and-security
-  const strategies = {
-    github: opts => new github.Strategy(opts, verify),
-    discord: opts => new discord.Strategy({ scope: ['identify'], ...opts}, verify),
+  const providers = {
+    github: {
+      makeMiddleware: opts => new github.Strategy(opts, githubVerify),
+    },
+    discord: {
+      makeMiddleware: opts => new discord.Strategy({ scope: ['identify'], ...opts}, discordVerify),
+    }
   };
 
   return def({ oauthClient });
 
-  function oauthClient(context /*: Context<*> */) /*: OAuthClientP */ {
+  function oauthClient(context /*: Context<OState> */) /*: OAuthClientP */ {
     const state = context.state;
-    if ('strategy' in context.state) {
-      use();
+    if ('provider' in context.state) {
+      installRoutes();
     }
 
     return def({
       init,
       path: () => state.path,
-      strategy: () => state.strategy,
-      clientId: () => state.id,
+      provider: () => state.privilege.provider,
+      clientId: () => state.opts.clientID,
     });
 
-    function init(pathM, callbackPathM, strategyM, id, secret, gameM) {
+    function init(pathM, callbackPathM,
+                  providerM, idM, secretM,
+                  locusM, roleM, tokenM,
+                  gameM) {
       once(state);
 
       // console.log('client init:', { path, callbackPath, strategy, id });
       state.path = persisted(pathM);
-      state.strategy = persisted(strategyM);
       state.opts = {
         callbackPath: persisted(callbackPathM),
-        clientID: id,
-        clientSecret: secret,
+        clientID: persisted(idM),
+        clientSecret: persisted(secretM),
       };
-      state.game = persisted(gameM);
+      if (providerM === 'discord') {
+        state.privilege = {
+          provider: 'discord',
+          botToken: persisted(tokenM),
+          guildID: persisted(locusM),
+          roleID: persisted(roleM),
+        };
+      } else if (providerM == 'github') {
+        state.privilege = {
+          provider: 'github',
+          repository: persisted(locusM),
+          repoToken: persisted(tokenM),
+          role: persisted(roleM),
+        };
+      }
+      state.game = (persisted(gameM) /*: GameBoard */);
 
-      use();
+      installRoutes();
     }
 
-    function use() {
+    function installRoutes() {
       console.log(state.game.label(), 'adding authorize route:', state.path, state.opts.callbackPath);
-      const strategy = state.strategy;
-      const makeStrategy = strategies[strategy];
-      if (!makeStrategy) {
-        throw new Error(`unknown strategy: ${strategy}`);
+      const provName = state.privilege.provider;
+      const provider = providers[provName];
+      if (!provider) {
+        throw new Error(`unknown provider: ${provName}`);
       }
 
       const opts = state.opts;
       opts.callbackURL = new URL(opts.callbackPath, baseURL).toString();
 
-      passport.use(makeStrategy(opts, verify));
+      passport.use(provider.makeMiddleware(opts));
       // console.log('DEBUG: opts:', opts);
 
-      app.get(state.path, passport.authenticate(strategy));
+      app.get(state.path, passport.authenticate(provName));
       setSignIn(state.path);
 
-      app.get(
-        opts.callbackPath,
-        passport.authenticate(strategy, { failureRedirect: '/auth-failure-@@' }),
-        (req, res) => {
-          console.log('successful auth:', req.user);
-          const session = state.game.sessionFor(req.user);
-          const sessionAddr = sturdyPath(session);
-          res.redirect(sessionAddr);
-        },
-      );
+      const fail /*: express$Middleware*/ = passport.authenticate(provName, { failureRedirect: '/auth-failure-@@' });
+      const OK = (req, res /*: express$Response*/) => {
+        console.log('successful auth:', req.user);
+        const session = state.game.sessionFor(req.user);
+        const sessionAddr = sturdyPath(session);
+        res.redirect(sessionAddr);
+      };
+      app.get(opts.callbackPath, fail, OK);
     }
   }
 
-  function verify(accessToken, refreshToken, profile, done) {
-    console.log('verify:', { profile });
+  function githubVerify(accessToken /*: Token*/, refreshToken /*: Token*/, profile /*: GithubAccount */,
+                        done /*: (mixed, mixed) => void*/) {
+    console.log('githubVerify:', { profile });
     done(null, {
       username: profile.username,
       displayName: profile.displayName,
-      detail: profile._json, // eslint-disable-line no-underscore-dangle
     });
   }
+
+
+  function discordVerify(accessToken /*: Token*/, refreshToken /*: Token*/, profile /*: DiscordUser */,
+                         done /*: (mixed, mixed) => void*/) {
+    console.log('verify:', { accessToken, refreshToken, profile });
+    // ISSUE: TODO: use DiscordAPI to check for role
+    done(null, {
+      id: profile.id,
+      username: profile.username,
+      displayName: `${profile.username}#${profile.discriminator}`,
+      avatar: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.avatar}/${profile.id}.png` : null
+    });
+  }
+}
+
+
+function DiscordAPI(get, token) {
+  const host = 'discordapp.com';
+  const v = 6;
+  const headers = { Authorization: `Bot ${token}` };
+
+  return def({
+    guilds(guildID) {
+      return def({
+        members(userID) {
+          const path = `/api/v${v}/guilds/${guildID}/members/${userID}`;
+          // console.log('guilds members', { host, path, headers });
+
+          return new Promise((resolve, reject) => {
+            const req = get({ host, path, headers }, (res) => {
+              const chunks = [];
+              // console.log({ status: res.statusCode,
+              //               headers: res.headers });
+              res.on('data', (data) => {
+                chunks.push(data)
+              }).on('end', () => {
+                const data = JSON.parse(Buffer.concat(chunks).toString());
+                // console.log('end', data);
+                resolve(data);
+              });
+            });
+            req.on('error', (err) => {
+              // console.log('error:', err);
+              reject(err);
+            });
+          });
+        }
+      });
+    },
+  });
 }
 
 
@@ -179,6 +293,17 @@ function trustCertTest(argv, { clock, randomBytes, grpc }) {
 if (require.main === module) {
   // ocap: Import powerful references only when invoked as a main module.
   /* eslint-disable global-require */
+  const get = require('https').get;
+  const env = process.env;
+  DiscordAPI(get, env.TOKEN || '').guilds(env.GUILD_ID || '').members(env.USER_ID || '')
+    .then((member) => {
+      console.log({ member });
+    })
+    .catch((oops) => {
+      console.log(oops);
+    });
+
+  if (0) {
   trustCertTest(
     process.argv,
     {
@@ -187,4 +312,5 @@ if (require.main === module) {
       randomBytes: require('crypto').randomBytes,
     },
   );
+  }
 }
