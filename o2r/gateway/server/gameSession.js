@@ -145,7 +145,13 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
     return self;
 
     function makeSignIn(path, callbackPath, provider, locus, role, token, id, secret) {
-      return context.make('gateway.oauthClient', // ISSUE: hard-code gateway?
+      const makers = {
+        'github': 'gateway.githubProvider', // ISSUE: hard-code gateway?
+        'discord': 'gateway.discordProvider',
+      };
+      const maker = makers[String(provider)]
+      if (!maker) { throw new Error(`unknown provider: ${String(provider)}`); }
+      return context.make(maker,
                           path, callbackPath,
                           provider, locus, role, token,
                           id, secret, self);

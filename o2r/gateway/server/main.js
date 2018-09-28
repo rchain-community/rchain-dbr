@@ -105,34 +105,69 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
   passport.serializeUser((user, done) => done(null, user));
   passport.deserializeUser((obj, done) => done(null, obj));
 
-  // ISSUE: state parameter
-  // https://discordapp.com/developers/docs/topics/oauth2#state-and-security
-  const providers = {
-    github: {
-      makeMiddleware: opts => new github.Strategy(opts, githubVerify),
-    },
-    discord: {
-      makeMiddleware: opts => new discord.Strategy({ scope: ['identify'], ...opts}, discordVerify),
+  return def({ githubProvider, discordProvider });
+
+  function githubProvider(context /*: Context<OState> */) /*: OAuthClientP */ {
+    function verify(accessToken /*: Token*/, refreshToken /*: Token*/, profile /*: GithubAccount */,
+                    done /*: (mixed, mixed) => void*/) {
+      console.log('githubVerify:', { profile });
+      done(null, {
+        username: profile.username,
+        displayName: profile.displayName,
+      });
     }
-  };
 
-  return def({ oauthClient });
+    return provider(context, {
+      privilege: (locusM, tokenM, roleM) => ({
+        provider: 'github',
+        repository: persisted(locusM),
+        repoToken: persisted(tokenM),
+        role: persisted(roleM),
+      }),
+      makeAuthz: opts => new github.Strategy(opts, verify),
+    });
+  }
 
-  function oauthClient(context /*: Context<OState> */) /*: OAuthClientP */ {
+  function discordProvider(context /*: Context<OState> */) /*: OAuthClientP */ {
+    // ISSUE: state parameter
+    // https://discordapp.com/developers/docs/topics/oauth2#state-and-security
+    function verify(accessToken /*: Token*/, refreshToken /*: Token*/, profile /*: DiscordUser */,
+                    done /*: (mixed, mixed) => void*/) {
+      console.log('verify:', { accessToken, refreshToken, profile });
+      // ISSUE: TODO: use DiscordAPI to check for role
+      done(null, {
+        id: profile.id,
+        username: profile.username,
+        displayName: `${profile.username}#${profile.discriminator}`,
+        avatar: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.avatar}/${profile.id}.png` : null
+      });
+    }
+
+    return provider(context, {
+      privilege: (locusM, tokenM, roleM) => ({
+        provider: 'discord',
+        botToken: persisted(tokenM),
+        guildID: persisted(locusM),
+        roleID: persisted(roleM),
+      }),
+      makeAuthz: opts => new discord.Strategy({ scope: ['identify'], ...opts}, verify)
+    });
+  }
+
+  function provider(context, impl) /*: OAuthClientP */ {
     const state = context.state;
-    if ('provider' in context.state) {
+    if (Object.keys(context.state).length > 0) {
       installRoutes();
     }
 
     return def({
       init,
       path: () => state.path,
-      provider: () => state.privilege.provider,
       clientId: () => state.opts.clientID,
     });
 
     function init(pathM, callbackPathM,
-                  providerM, idM, secretM,
+                  idM, secretM,
                   locusM, roleM, tokenM,
                   gameM) {
       once(state);
@@ -144,21 +179,7 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
         clientID: persisted(idM),
         clientSecret: persisted(secretM),
       };
-      if (providerM === 'discord') {
-        state.privilege = {
-          provider: 'discord',
-          botToken: persisted(tokenM),
-          guildID: persisted(locusM),
-          roleID: persisted(roleM),
-        };
-      } else if (providerM == 'github') {
-        state.privilege = {
-          provider: 'github',
-          repository: persisted(locusM),
-          repoToken: persisted(tokenM),
-          role: persisted(roleM),
-        };
-      }
+      state.privilege = impl.privilege();
       state.game = (persisted(gameM) /*: GameBoard */);
 
       installRoutes();
@@ -167,15 +188,11 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
     function installRoutes() {
       console.log(state.game.label(), 'adding authorize route:', state.path, state.opts.callbackPath);
       const provName = state.privilege.provider;
-      const provider = providers[provName];
-      if (!provider) {
-        throw new Error(`unknown provider: ${provName}`);
-      }
 
       const opts = state.opts;
       opts.callbackURL = new URL(opts.callbackPath, baseURL).toString();
 
-      passport.use(provider.makeMiddleware(opts));
+      passport.use(impl.makeAuthz(opts));
       // console.log('DEBUG: opts:', opts);
 
       app.get(state.path, passport.authenticate(provName));
@@ -190,28 +207,6 @@ function appFactory({ app, passport, baseURL, setSignIn, sturdyPath } /*: Powers
       };
       app.get(opts.callbackPath, fail, OK);
     }
-  }
-
-  function githubVerify(accessToken /*: Token*/, refreshToken /*: Token*/, profile /*: GithubAccount */,
-                        done /*: (mixed, mixed) => void*/) {
-    console.log('githubVerify:', { profile });
-    done(null, {
-      username: profile.username,
-      displayName: profile.displayName,
-    });
-  }
-
-
-  function discordVerify(accessToken /*: Token*/, refreshToken /*: Token*/, profile /*: DiscordUser */,
-                         done /*: (mixed, mixed) => void*/) {
-    console.log('verify:', { accessToken, refreshToken, profile });
-    // ISSUE: TODO: use DiscordAPI to check for role
-    done(null, {
-      id: profile.id,
-      username: profile.username,
-      displayName: `${profile.username}#${profile.discriminator}`,
-      avatar: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.avatar}/${profile.id}.png` : null
-    });
   }
 }
 
