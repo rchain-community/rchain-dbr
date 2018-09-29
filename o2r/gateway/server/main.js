@@ -158,7 +158,13 @@ function appFactory({ app, get, passport, baseURL, setSignIn, sturdyPath } /*: P
               id: profile.id,
               username: profile.username,
               displayName: `${profile.username}#${profile.discriminator}`,
-              avatar: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.avatar}/${profile.id}.png` : null
+              avatar: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.avatar}/${profile.id}.png` : null,
+              detail: {
+                created_at: member.joined_at,
+                roles: member.roles,
+                role0: privilege.roleID,
+                guild: privilege.guildID,
+              }
             };
             console.log('authorized:', who);
             done(null, who);

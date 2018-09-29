@@ -2,7 +2,7 @@
 <html>
   <head>
     <title>
-      RChain Community Trust Metric
+      RChain Springboard
     </title>
     <link rel="stylesheet" href="/apps/gateway/ui/formTidy.css" />
   </head>
@@ -12,6 +12,51 @@
       <br /><em id="session"></em>
     </div>
     <div class="main">
+      <h1>RChain Members Springboard</h1>
+      <h2>Membership Certificate</h2>
+      <!-- ISSUE: TODO: parameterize discord server name, role name. -->
+      <p>
+        This service, with public
+        key <strong><small><code id="certKey">____</code></small></strong>,
+        provides a sort of membership certificate; that is: a
+        counter-signed binding between an authorized discord user and
+        a public key provided by that user.
+      </p>
+      <p>
+        We authenticated you with
+        <a href="https://discordapp.com/developers/docs/topics/oauth2">discord
+          OAuth2</a> and verified that you have the
+        <strong id="memberRole">member</strong> role in
+        the <strong id="guild">pub-RChain</strong> discord server, which you
+        joined (<em>logged in?</em>) at <input id="joined_at" readonly
+        value="2018-07-01 12:12:12" type="datetime-local" /> .
+      </p>
+
+      <h3>Instructions</h3>
+      <ol>
+        <li>Copy your public key from <b>RSign</b> and paste it below.</li>
+        <li>The binding between this key and your discord identity
+        will be formatted as JSON (interoperable with Rholang as
+        RHOCore).</li>
+        <li>Use <b>RSign</b> to sign the binding.</li>
+        <li>Invoke <b>Request Certificate</b>.</li>
+        <li>This service verifies your signature, counter-signs, and
+          sends the result to RChain.
+          <br /><em>ISSUE: where on RChain? On what channel?</em>
+        </li>
+      </ol>
+      <fieldset class="tidy">
+        <label><b>Public Key:</b> <input id="memberPublicKey" size="64"/></label>
+	<label><b>Binding:</b>
+	  <textarea id="certBinding" readonly rows="15" cols="50" ></textarea>
+	</label>
+	<label><b>Signature:</b> <input id="memberSig" size="25" /></label>
+	<label><b>Signed at:</b> <input id="memberSigTime" readonly
+					value="2018-07-01 12:12:12" type="datetime-local" /> </label>
+	<br clear="all" />
+	<div><label><b><button id="requestCert">Request Certificate</button></b></label></div>
+      </fieldset>
+      <hr />
       <h1>RChain Community Trust Metric</h1>
       <!-- ISSUE: parameterize title? -->
 

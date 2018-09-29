@@ -1,3 +1,5 @@
+/* global Bacon */
+
 function sessionUI(session, clock, $) {
     const ui = {
 	user: $('#user'),
@@ -12,6 +14,13 @@ function sessionUI(session, clock, $) {
 	turnSig: $('#turnSig'),
     };
 
+    const textStream = jq => jq
+          .asEventStream('keydown')
+          .debounce(300)
+          .map(event => event.target.value)
+          .skipDuplicates();
+    const memberKey = textStream($('#memberPublicKey'))
+
     const sessionInfo = Bacon.fromPromise(session.post('info'));
     sessionInfo.onValue(si => {
 	const user = si.userProfile,
@@ -25,11 +34,50 @@ function sessionUI(session, clock, $) {
 
 	ui.session.text(`login: ${ new Date(si.created).toISOString() }`);
 
+        $('#certKey').text(si.gameKey);
+        $('#guild').attr('title', user.detail.guild);
+        $('#memberRole').attr('title', user.detail.role0);
+        $('#joined_at').val(fmtTime(user.detail.created_at));
 	showCertTime(clock());
+
+        memberKey.onValue((k) => {
+            console.log('key:', k);
+            const binding = {
+                publicKey: k,
+                discord: {
+                    id: user.id,
+                    userName: user.displayName,
+                    role: user.detail.role0,
+                    guild: user.detail.guild
+                },
+            };
+            $('#certBinding').prop('readonly', false);
+            $('#certBinding').val(JSON.stringify(binding, null, 2));
+            $('#certBinding').prop('readonly', true);
+        });
+
     });
 
+    const memberSig = textStream($('#memberSig'));
+    memberSig.onValue(_ => { $('#memberSigTime').val(fmtTime(clock().toISOString())); });
+
+    const requestCert = $('#requestCert').asEventStream('click').log('requestCert click');
+    const requestInfo = requestCert
+	  .map(_e => ({
+              binding: JSON.parse($('#certBinding').val()),
+              memberSignature: $('#memberSig').val(),
+              memberSigTime: $('#memberSigTime').val()
+	  })).log('request');
+    const requestSend = requestInfo
+	  .flatMap(info => Bacon.fromPromise(session.post('requestCertificate', info)))
+          .log('request sent');
+    // ISSUE: TODO: handle reply...
+
     function showCertTime(t) {
-	ui.cert_time.val(t.toISOString().substring(0, "yyyy-MM-ddThh:mm".length));
+	ui.cert_time.val(fmtTime(t.toISOString()));
+    }
+    function fmtTime(iso) {
+        return iso.substring(0, "yyyy-MM-ddThh:mm".length);
     }
 
     Bacon.fromPromise(session.post('select', 'users')).onValue(peers => {
