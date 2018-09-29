@@ -46,6 +46,19 @@
       </fieldset>
     </div>
 
+    <script>
+function query2hash(loc) {
+  const parts = loc.href.match(/([^?]+)\?(.*)/);
+  if (!parts) { return; }
+  const [_, addr, query] = parts;
+  loc.href = `${addr}#${query}`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  query2hash(window.location);
+});
+    </script>
+
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
             integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
             crossorigin="anonymous"></script>

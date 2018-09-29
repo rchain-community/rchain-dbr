@@ -124,9 +124,11 @@ function main(argv, { fs, join, clock, randomBytes, http, https, express, passpo
       }
     }
 
+    /**
+     * Get webKey but with `?` rather than `#` for server-to-server communication.
+     */
     function sturdyPath(obj) {
       const webKey = sturdy.idToWebkey(saver.asId(obj));
-      // ISSUE: double-check waterken / Capper docs on # -> ?
       const unhash = webKey.substring(config.domain.length).replace('#', '?');
       return `/${unhash}`;
     }
