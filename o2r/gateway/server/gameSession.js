@@ -197,16 +197,12 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       const turnSig = gameKey.signDataHex(turnMsg);
       const takeTurnTerm = rho`@"takeTurn"!(${gameKey.publicKey()}, ${turnMsg}, ${turnSig}, "stdout")`;
 
-      console.log('@@deploying:', takeTurnTerm);
-      return rchain.doDeploy(takeTurnTerm).then((result) => {
-        console.log('doDeploy result:', result);
-        if (!result.success) {
-          throw result;
-        }
+      console.log('deploying:', takeTurnTerm);
+      return rchain.doDeploy({ term: takeTurnTerm }).then((message) => {
+        console.log('doDeploy result:', message);
 
-        return rchain.createBlock().then((maybeBlock) => {
-          if (!maybeBlock.block) { throw new Error('createBlock failed'); }
-          logged(maybeBlock.block.blockHash, 'created block:');
+        return rchain.createBlock().then(() => {
+          console.log('created block');
           return { turnSig, takeTurnTerm, recordKey };
         });
       });
