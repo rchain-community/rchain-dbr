@@ -19,6 +19,13 @@ try_files $uri $uri/ /index.php?q=$uri&$args;
   }
 
   location ~ \.php$ {
+
+    # certificate of membership -- testing
+    # https://serverfault.com/questions/811912/can-nginx-location-blocks-match-a-url-query-string
+    error_page 418 = @discord_callback;
+    if ( $query_string = "discord_oauth_callback=true" ) { return 418; }
+
+
     #include snippets/fastcgi-php.conf;
     include snippets/fastcgi-php.conf;
     set $my_https $https;
@@ -31,6 +38,11 @@ try_files $uri $uri/ /index.php?q=$uri&$args;
     fastcgi_param HTTP_HOST $host; # set $_SERVER['HTTP_HOST']
     #fastcgi_pass unix:/run/php/php7.0-fpm.sock;
     fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
+  }
+
+  location @discord_callback {
+    root /;
+    try_files /etc/issue /etc/issue;
   }
 
   location /aux {
