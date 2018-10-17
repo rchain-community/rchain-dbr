@@ -8,6 +8,7 @@
 
 const { rho } = require('./rhoTemplate');
 const { once, persisted } = require('../../capper_start');
+const { verifyDataSigHex } = require('./keyPair');
 
 /*:: // ISSUE: belongs in RChain-API
 import { RNode } from 'rchain-api';
@@ -27,8 +28,6 @@ interface GameSession {
     gameLabel: string,
     gameKey: Hex<PublicKey>,
   },
-  select(tablename: string): Record[],
-  merge(tablename: string, record: Record): Promise<MergeResult>
 };
 
 interface GameSessionP extends Persistent, GameSession {
@@ -36,8 +35,6 @@ interface GameSessionP extends Persistent, GameSession {
 }
 
 export interface GameBoard {
-  select(tablename: string): Record[],
-  merge(tablename: string, record: Record): Promise<MergeResult>,
   makeSignIn(path: string, callbackPath: string,
              provider: Provider, locus: string, role: string, token: Token,
              id: string, secret: Token): OAuthClient,
@@ -58,12 +55,6 @@ opaque type TimeInMs = number;
 
 type Record = { [string]: mixed };
 
-type MergeResult = {
-  turnSig: Hex<Signature>,
-  takeTurnTerm: Rholang,
-  recordKey: mixed[],
-};
-
 type GamePowers = {
   clock: () => Date,
   rchain: RChain,
@@ -71,26 +62,6 @@ type GamePowers = {
 */
 
 const def = Object.freeze;
-
-// ISSUE: TODO: get peers to rate from github / discord
-const mockDB = {
-  // ISSUE: dbr_tables.sql calls it github_users, with login
-  users: {
-    key: ['username'],
-    // JSON-stringified key cols -> record
-    records: {
-      '["a1"]': { username: 'a1', displayName: 'Angela' },
-      '["b2"]': { username: 'b2', displayName: 'Bob' },
-      '["c3"]': { username: 'c3', displayName: 'Charlie' },
-      '["d4"]': { username: 'd4', displayName: 'Darlene' },
-    },
-  },
-  trust_cert: {
-    key: ['voter', 'subject'],
-    records: {},
-  },
-};
-
 
 module.exports.appFactory = appFactory;
 function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
@@ -110,9 +81,13 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
     return def({
       init,
       info,
-      select: tableName => state.game.select(tableName),
-      merge: (tableName, record) => state.game.merge(tableName, record),
+      requestCertificate,
     });
+
+    function requestCertificate(binding) {
+      console.log('reqCert binding:@@', JSON.stringify(binding));
+      return state.game.counterSign(binding);
+    }
 
     function info() {
       return def({
@@ -139,7 +114,7 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
 
     const label = () => state.label;
     const publicKey = () => state.gameKey.publicKey();
-    const self = def({ init, select, merge, makeSignIn, sessionFor, label, publicKey });
+    const self = def({ init, counterSign, makeSignIn, sessionFor, label, publicKey });
     return self;
 
     function makeSignIn(path, callbackPath, provider, locus, role, token, id, secret) {
@@ -167,43 +142,38 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       return session;
     }
 
-    function select(tablename /*: string*/) /*: Record[] */ {
-      const table = mockDB[tablename];
-      if (!table) {
-        throw new Error(`unknown table: ${tablename}`);
-      }
+    function counterSign(claim) {
+      checkCurrent(claim);
+      checkSig(claim);
 
-      return values(table.records);
-    }
+      const endorsement = state.gameKey.signDataHex(claim);
+      const cert = rho`${{ claim, endorsement }}`;
 
-    /* typesafe version of Object.values */
-    function values(o) {
-      return Object.keys(o).map(p => o[p]);
-    }
-
-    function merge(tablename /*: string*/, record /*: { [string]: mixed } */) {
-      if (tablename !== 'trust_cert') {
-        throw new Error(`not implemented: ${tablename}`);
-      }
-
-      const table = mockDB[tablename];
-      const recordKey = table.key.map(field => record[field]);
-
-      const gameKey = state.gameKey;
-
-      const turnMsg = ['merge', tablename, record];
-      const turnSig = gameKey.signDataHex(turnMsg);
-      const takeTurnTerm = rho`@"takeTurn"!(${gameKey.publicKey()}, ${turnMsg}, ${turnSig}, "stdout")`;
-
-      console.log('deploying:', takeTurnTerm);
-      return rchain.doDeploy({ term: takeTurnTerm }).then((message) => {
+      console.log('deploying:', cert);
+      return rchain.doDeploy({ term: cert }).then((message) => {
         console.log('doDeploy result:', message);
 
         return rchain.createBlock().then(() => {
           console.log('created block');
-          return { turnSig, takeTurnTerm, recordKey };
+          return cert;
         });
       });
+    }
+
+    function checkCurrent(claim) {
+      const { memberSigTime } = claim;
+
+      const now = clock().valueOf();
+      const threshold = 10 * 60 * 1000;
+      const lo = new Date(now - threshold).toISOString();
+      const hi = new Date(now + threshold).toISOString();
+      if (memberSigTime < lo || memberSigTime > hi) { throw new Error('bad sig time'); }
+    }
+
+    function checkSig(claim) {
+      const { binding: { publicKey, discord }, memberSignature } = claim;
+      const ok = verifyDataSigHex({ publicKey, discord }, memberSignature, publicKey);
+      if (!ok) { throw new Error('bad sig'); }
     }
   }
 }

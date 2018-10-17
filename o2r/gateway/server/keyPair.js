@@ -48,7 +48,7 @@ type KeyGenPowers = {
 }
 */
 
-const { RHOCore, b2h, h2b } = rchain;
+const { RHOCore, b2h, h2b, verify } = rchain;
 const { fromJSData, toByteArray } = RHOCore;
 const def = Object.freeze; // cf. ocap design note
 
@@ -89,6 +89,13 @@ function appFactory({ randomBytes } /*: KeyGenPowers */) {
       return rchain.keyPair(h2b(state.seed));
     }
   }
+}
+
+
+exports.verifyDataSigHex = verifyDataSigHex;
+function verifyDataSigHex(data, sigHex, pubKeyHex) {
+  const message = toByteArray(fromJSData(data));
+  return verify(message, h2b(sigHex), h2b(pubKeyHex));
 }
 
 
