@@ -33,6 +33,8 @@ Options:
  --conf FILE            specification of protocol (http / https), domain, and
                         port of this service, in JSON.
                         [default: capper.config]
+ --base URL             base URL of this service as seen from OAuth peers
+                        [default: https://springboard.rhobot.net/]
  --ssl DIR              where to find SSL server.key, server.crt, ca.crt
                         if protocol is https
                         [default: ./ssl]
@@ -68,7 +70,11 @@ function main(argv, { fs, join, clock, randomBytes, http, https, express, passpo
     const app = express();
     const expressWrap = () => app;
     const apps = def({
-      gateway: gateway.appFactory({ app, passport, setSignIn, sturdyPath, get: https.get, baseURL: config.domain }),
+      gateway: gateway.appFactory({
+        app, passport, setSignIn, sturdyPath,
+        get: https.get,
+        baseURL: cli['--base'],
+      }),
       keyChain: keyPair.appFactory({ randomBytes: randomBytes }),
       game: gameSession.appFactory('game', { clock, rchain }),
     });
