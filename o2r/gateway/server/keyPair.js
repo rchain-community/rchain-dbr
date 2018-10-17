@@ -6,13 +6,12 @@
 */
 // @flow strict
 
-const rchain = require('rchain-api');
-
 // for customizing the way objects appear in logs
 // ref https://nodejs.org/api/util.html#util_custom_inspection_functions_on_objects
 // ack: https://stackoverflow.com/a/46870568
 const inspect = require('util').inspect;
 
+const rchain = require('../../lib/rchain-api/rnodeAPI');
 const { once } = require('../../capper_start');
 
 /*::  // ISSUE: belongs in rchain-api?

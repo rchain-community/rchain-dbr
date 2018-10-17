@@ -1,0 +1,3 @@
+[submodule "o2r/lib/rchain-api"]
+	path = o2r/lib/rchain-api
+	url = https://github.com/dckc/RChain-API

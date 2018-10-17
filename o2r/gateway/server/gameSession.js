@@ -6,8 +6,6 @@
 */
 // @flow strict
 
-const { RHOCore, logged } = require('rchain-api');
-
 const { rho } = require('./rhoTemplate');
 const { once, persisted } = require('../../capper_start');
 

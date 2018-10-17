@@ -8,8 +8,8 @@
 // $FlowFixMe ISSUE: flow strict in capper
 const Capper = require('Capper');
 const docopt = require('docopt').docopt;
-const rnodeAPI = require('rchain-api');
 
+const rnodeAPI = require('./lib/rchain-api/rnodeAPI');
 const capperStart = require('./capper_start');
 const gateway = require('./gateway/server/main');
 const keyPair = require('./gateway/server/keyPair');
