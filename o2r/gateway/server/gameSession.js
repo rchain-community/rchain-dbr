@@ -84,9 +84,26 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       requestCertificate,
     });
 
-    function requestCertificate(binding) {
-      console.log('reqCert binding:@@', JSON.stringify(binding));
-      return state.game.counterSign(binding);
+    function requestCertificate(claim) {
+      console.log('claim:', JSON.stringify(claim, null, 2));
+      const { binding: { discord } } = claim;
+      const user = state.userProfile;
+      const authenticated = {
+        id: user.id,
+        userName: user.displayName,
+        role: user.detail.role0,
+        guild: user.detail.guild,
+      };
+      if (!sameProperties(authenticated, discord)) {
+        throw new Error('Claim does not match discord OAuth2 identity.')
+      }
+      return state.game.counterSign(claim);
+    }
+
+    function sameProperties(expected, actual) {
+      const keys = Object.keys(expected);
+      if (keys.length != Object.keys(actual).length) { return false; }
+      return keys.every(k => expected[k] === actual[k]);
     }
 
     function info() {
@@ -147,17 +164,7 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       checkSig(claim);
 
       const endorsement = state.gameKey.signDataHex(claim);
-      const cert = rho`${{ claim, endorsement }}`;
-
-      console.log('deploying:', cert);
-      return rchain.doDeploy({ term: cert }).then((message) => {
-        console.log('doDeploy result:', message);
-
-        return rchain.createBlock().then(() => {
-          console.log('created block');
-          return cert;
-        });
-      });
+      return rho`${{ claim, endorsement }}`;
     }
 
     function checkCurrent(claim) {

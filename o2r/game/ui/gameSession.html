@@ -5,6 +5,9 @@
       RChain Springboard
     </title>
     <link rel="stylesheet" href="/apps/gateway/ui/formTidy.css" />
+    <style>
+      #status { color: red }
+    </style>
   </head>
   <body>
     <div align="right" id="greeting">
@@ -19,7 +22,7 @@
         This service, with public
         key <strong><small><code id="certKey">____</code></small></strong>,
         provides a sort of membership certificate; that is: a
-        counter-signed binding between an authorized discord user and
+        verified credential binding an authorized discord user with
         a public key provided by that user.
       </p>
       <p>
@@ -56,6 +59,14 @@
 	<br clear="all" />
 	<div><label><b><button id="requestCert">Request Certificate</button></b></label></div>
       </fieldset>
+
+      <div id="status"></div>
+      <div id="results">
+        <h3>Verified Credential</h3>
+        <pre id="verifiedCredential">
+        </pre>
+      </div>
+
       <hr />
       <h1>RChain Community Trust Metric</h1>
       <!-- ISSUE: parameterize title? -->
@@ -81,7 +92,7 @@
 	<br clear="all" />
 	<div><label><b><button id="certify">Save</button></b></label></div>
 	<br clear="all" />
-	<div id="results">
+	<div id="results@@">
 	  <label><b>Record Key:</b> <input id="recordKey" readonly size="50" /></label>
 	  <label><b>Rholang Deployed:</b>
 	    <textarea id="takeTurnTerm" readonly rows="15" cols="50" ></textarea>

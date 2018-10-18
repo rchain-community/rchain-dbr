@@ -4,14 +4,7 @@ function sessionUI(session, clock, $) {
     const ui = {
 	user: $('#user'),
 	session: $('#session'),
-	cert_time: $('#cert_time'),
-	subject: $('#subject'),
-	rating: $('#rating'),
-	certify: $('#certify'),
 	results: $('#results'),
-	recordKey: $('#recordKey'),
-	takeTurnTerm: $('#takeTurnTerm'),
-	turnSig: $('#turnSig'),
     };
 
     const textStream = jq => jq
@@ -38,7 +31,6 @@ function sessionUI(session, clock, $) {
         $('#guild').attr('title', user.detail.guild);
         $('#memberRole').attr('title', user.detail.role0);
         $('#joined_at').val(fmtTime(user.detail.created_at));
-	showCertTime(clock());
 
         memberKey.onValue((k) => {
             console.log('key:', k);
@@ -64,6 +56,7 @@ function sessionUI(session, clock, $) {
     const requestCert = $('#requestCert').asEventStream('click').log('requestCert click');
     const requestInfo = requestCert
 	  .map(_e => ({
+              // ISSUE: JSON.parse can fail
               binding: JSON.parse($('#certBinding').val()),
               memberSignature: $('#memberSig').val(),
               memberSigTime: $('#memberSigTime').val()
@@ -73,11 +66,51 @@ function sessionUI(session, clock, $) {
           .log('request sent');
     // ISSUE: TODO: handle reply...
 
-    function showCertTime(t) {
-	ui.cert_time.val(fmtTime(t.toISOString()));
-    }
     function fmtTime(iso) {
         return iso.substring(0, "yyyy-MM-ddThh:mm".length);
+    }
+
+    const eachReply = requestSend.merge(requestSend.mapError(err => null)).log('reply');
+    requestSend.awaiting(eachReply).log('awaiting...')
+	.onValue(loading => {
+	    $('#requestCert').attr('disabled', loading);
+
+	    if (loading) {
+	        ui.results.hide();
+	        $('#status').hide();
+	    }
+        });
+
+    eachReply.onError((msg) => {
+	$('#status').text(msg);
+	$('#status').show();
+    });
+
+    eachReply.onValue(r => {
+        $('#verifiedCredential').text(r.replace(/\|/g, '|\n'));
+        ui.results.show();
+    });
+}
+
+
+// dead code?
+function trustCertUI() {
+    const ui = {
+	user: $('#user'),
+	session: $('#session'),
+	cert_time: $('#cert_time'),
+	subject: $('#subject'),
+	rating: $('#rating'),
+	certify: $('#certify'),
+	results: $('#results'),
+	recordKey: $('#recordKey'),
+	takeTurnTerm: $('#takeTurnTerm'),
+	turnSig: $('#turnSig'),
+    };
+
+    showCertTime(clock());
+    function showCertTime(t) {
+	ui.cert_time.val(fmtTime(t.toISOString()));
     }
 
     Bacon.fromPromise(session.post('select', 'users')).onValue(peers => {
