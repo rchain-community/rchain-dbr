@@ -8,6 +8,7 @@
 
     ISSUE: indirect to SecretService for CLIENT_SECRET?
 */
+/* global require, module, exports, Buffer */
 // @flow strict
 const URL = require('url').URL;
 
@@ -150,10 +151,15 @@ function appFactory({ app, get, passport, baseURL, setSignIn, sturdyPath } /*: P
       console.log('verify:', { profile });
       const privilege = context.state.privilege;
 
-      DiscordAPI(get, privilege.botToken).guilds(privilege.guildID).members(profile.id)
-        .then((member) => {
+      const guild = DiscordAPI(get, privilege.botToken).guilds(privilege.guildID);
+      Promise.all([
+        guild.info(),
+        guild.members(profile.id),
+      ])
+        .then(([guild, member]) => {
           console.log('verify:', { profile, member });
           if (member.roles.includes(privilege.roleID)) {
+            const role0 = guild.roles.filter(r => r.id === privilege.roleID)[0];
             const who = {
               id: profile.id,
               username: profile.username,
@@ -162,8 +168,8 @@ function appFactory({ app, get, passport, baseURL, setSignIn, sturdyPath } /*: P
               detail: {
                 created_at: member.joined_at,
                 roles: member.roles,
-                role0: privilege.roleID,
-                guild: privilege.guildID,
+                role0: role0,
+                guild: guild,
               }
             };
             console.log('authorized:', who);
@@ -252,34 +258,38 @@ function DiscordAPI(get, token) {
   const api = '/api/v6';
   const headers = { Authorization: `Bot ${token}` };
 
+  function getJSON(path) {
+    console.log('calling Discord API', { host, path, headers });
+    return new Promise((resolve, reject) => {
+      const req = get({ host, path, headers }, (res) => {
+        const chunks = [];
+        // console.log({ status: res.statusCode,
+        //               headers: res.headers });
+        res.on('data', (data) => {
+          chunks.push(data);
+        }).on('end', () => {
+          const body = Buffer.concat(chunks).toString();
+          const data = JSON.parse(body);
+          console.log('Discord done:', Object.keys(data));
+          resolve(data);
+        });
+      });
+      req.on('error', (err) => {
+        console.error('Discord API error:', err);
+        reject(err);
+      });
+    });
+  }
+
   return def({
     guilds(guildID) {
       return def({
+        info() {
+          return getJSON(`${api}/guilds/${guildID}`);
+        },
         members(userID) {
-          const path = `${api}/guilds/${guildID}/members/${userID}`;
-          console.log('calling Discord API', { host, path, headers });
-
-          return new Promise((resolve, reject) => {
-            const req = get({ host, path, headers }, (res) => {
-              const chunks = [];
-              // console.log({ status: res.statusCode,
-              //               headers: res.headers });
-              res.on('data', (data) => {
-                chunks.push(data)
-              }).on('end', () => {
-                const body = Buffer.concat(chunks).toString();
-                console.log('@@Discord response body:', body);
-                const data = JSON.parse(body);
-                console.log('Discord done:', Object.keys(data));
-                resolve(data);
-              });
-            });
-            req.on('error', (err) => {
-              console.error('Discord API error:', err);
-              reject(err);
-            });
-          });
-        }
+          return getJSON(`${api}/guilds/${guildID}/members/${userID}`);
+        },
       });
     },
   });
@@ -326,6 +336,7 @@ function trustCertTest(argv, { clock, randomBytes, grpc }) {
 if (require.main === module) {
   // ocap: Import powerful references only when invoked as a main module.
   /* eslint-disable global-require */
+  /* global process */
   const get = require('https').get;
   const env = process.env;
   DiscordAPI(get, env.TOKEN || '').guilds(env.GUILD_ID || '').members(env.USER_ID || '')

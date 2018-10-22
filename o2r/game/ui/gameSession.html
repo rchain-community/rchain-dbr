@@ -29,9 +29,9 @@
         We authenticated you with
         <a href="https://discordapp.com/developers/docs/topics/oauth2">discord
           OAuth2</a> and verified that you have the
-        <strong id="memberRole">member</strong> role in
-        the <strong id="guild">pub-RChain</strong> discord server, which you
-        joined (<em>logged in?</em>) at <input id="joined_at" readonly
+        <strong id="memberRole">ROLE</strong> role in
+        the <strong id="guild">GUILD</strong> discord server, which you
+        joined at <input id="joined_at" readonly
         value="2018-07-01 12:12:12" type="datetime-local" /> .
       </p>
 
@@ -68,6 +68,7 @@
       </div>
 
       <hr />
+      <div style="display:none">
       <h1>RChain Community Trust Metric</h1>
       <!-- ISSUE: parameterize title? -->
 
@@ -101,8 +102,14 @@
 	</div>
       </fieldset>
     </div>
-
+    <address>
+      by Dan Connolly<br />
+      copyright (c) RChain Cooperative<br />
+      share and enjoy:
+      <a href="https://github.com/dckc/rchain-dbr/tree/oauth_gateway/o2r">rchain-dbr/oauth_gateway</a>
     <script>
+    </div>
+
 function query2hash(loc) {
   const parts = loc.href.match(/([^?]+)\?(.*)/);
   if (!parts) { return; }

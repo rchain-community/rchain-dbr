@@ -28,8 +28,10 @@ function sessionUI(session, clock, $) {
 	ui.session.text(`login: ${ new Date(si.created).toISOString() }`);
 
         $('#certKey').text(si.gameKey);
-        $('#guild').attr('title', user.detail.guild);
-        $('#memberRole').attr('title', user.detail.role0);
+        $('#guild').text(user.detail.guild.name);
+        $('#guild').attr('title', user.detail.guild.id);
+        $('#memberRole').text(user.detail.role0.name);
+        $('#memberRole').attr('title', user.detail.role0.id);
         $('#joined_at').val(fmtTime(user.detail.created_at));
 
         memberKey.onValue((k) => {
@@ -39,8 +41,8 @@ function sessionUI(session, clock, $) {
                 discord: {
                     id: user.id,
                     userName: user.displayName,
-                    role: user.detail.role0,
-                    guild: user.detail.guild
+                    role: user.detail.role0.id,
+                    guild: user.detail.guild.id,
                 },
             };
             $('#certBinding').prop('readonly', false);

@@ -91,8 +91,8 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       const authenticated = {
         id: user.id,
         userName: user.displayName,
-        role: user.detail.role0,
-        guild: user.detail.guild,
+        role: user.detail.role0.id,
+        guild: user.detail.guild.id,
       };
       if (!sameProperties(authenticated, discord)) {
         throw new Error('Claim does not match discord OAuth2 identity.')
@@ -152,6 +152,7 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       const { id } = userProfile;
       const { players } = state;
       let session = players[id];
+      // ISSUE: keep player sessions forever?
       if (!session) {
         session = context.make(`${parent}.gameSession`, userProfile, self);
         players[id] = session;
