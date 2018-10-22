@@ -13,11 +13,11 @@ const URL = require('url').URL;
 
 const discord = require('passport-discord');
 const github = require('passport-github');
-const rnodeAPI = require('rchain-api');
 
+const rnodeAPI = require('../../lib/rchain-api/rnodeAPI');
 const { once, persisted } = require('../../capper_start');
 const keyPair = require('./keyPair');
-const { rho } = require('./rhoTemplate');
+const { rhol } = rnodeAPI.RHOCore;
 
 const def = Object.freeze; // cf. ocap design note
 
@@ -309,7 +309,7 @@ function trustCertTest(argv, { clock, randomBytes, grpc }) {
 
   const certSigHex = gatewayKey.signBytesHex(RHOCore.toByteArray(RHOCore.fromJSData(cert1)));
   const certTerm = logged(
-    rho`@"certify"!(${cert1}, ${certSigHex})`,
+    rhol`@"certify"!(${cert1}, ${certSigHex})`,
     'certTerm',
   );
   rchain.doDeploy(certTerm).then((result) => {
