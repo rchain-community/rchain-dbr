@@ -11,7 +11,7 @@ const { once, persisted } = require('../../capper_start');
 const { verifyDataSigHex } = require('./keyPair');
 
 /*:: // ISSUE: belongs in RChain-API
-import { RNode } from 'rchain-api';
+import { RNode } from '../../lib/rchain-api/rnodeAPI';
 opaque type Rholang = string;
 type RChain = $Call<typeof RNode, mixed, { host: string, port: number }>
 */

@@ -8,8 +8,8 @@ node_modules/rchain-api/*.js
 
 [libs]
 node_modules/Capper/interfaces/
-node_modules/rchain-api/interfaces/
-node_modules/rchain-api/protobuf/interfaces/
+lib/rchain-api/interfaces/
+lib/rchain-api/protobuf/interfaces/
 
 [lints]
 

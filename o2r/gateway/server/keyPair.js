@@ -93,7 +93,7 @@ function appFactory({ randomBytes } /*: KeyGenPowers */) {
 
 
 exports.verifyDataSigHex = verifyDataSigHex;
-function verifyDataSigHex(data, sigHex, pubKeyHex) {
+function verifyDataSigHex(data /*: Json */, sigHex /*: string */, pubKeyHex /*: string */) {
   const message = toByteArray(fromJSData(data));
   console.log({ sigHex, pubKeyHex, dataHex: b2h(message) });
   return verify(message, h2b(sigHex), h2b(pubKeyHex));
