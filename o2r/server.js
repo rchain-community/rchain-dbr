@@ -3,6 +3,7 @@
     See also: CONTRIBUTING.md design notes on Capper and webkeys
     as well as ocap discipline.
 */
+/* global require, module */
 // @flow strict
 
 // $FlowFixMe ISSUE: flow strict in capper
@@ -148,6 +149,7 @@ if (require.main === module) {
   // See Object capability discipline design note in
   // CONTRIBUTING.md.
   /* eslint-disable global-require */
+  /* global process */
   main(process.argv,
        {
          // Opening a file based on filename is a primitive effect.
