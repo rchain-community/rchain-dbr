@@ -6,7 +6,7 @@
 */
 // @flow strict
 
-const { rho } = require('./rhoTemplate');
+const { rhol } = require('../../lib/rchain-api/RHOCore');
 const { once, persisted } = require('../../capper_start');
 const { verifyDataSigHex } = require('./keyPair');
 
@@ -164,7 +164,7 @@ function appFactory(parent /*: string*/, { clock, rchain } /*: GamePowers*/) {
       checkSig(claim);
 
       const endorsement = state.gameKey.signDataHex(claim);
-      return rho`${{ claim, endorsement }}`;
+      return rhol`${{ claim, endorsement }}`;
     }
 
     function checkCurrent(claim) {
