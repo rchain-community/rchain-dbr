@@ -22,6 +22,9 @@ webkey, whose state includes a key pair for use on RChain.
 
 Then visit that webkey URL in your browser to configure the rest.
 
+On subsequent starts, you can use \`--sign-in ID\` to revive the path
+handler for one OAuth2 client.
+
 Usage:
   server.js [options] list
   server.js [options] make REVIVER [ARG...]
@@ -34,6 +37,8 @@ Options:
  --conf FILE            specification of protocol (http / https), domain, and
                         port of this service, in JSON.
                         [default: capper.config]
+ --sign-in ID           db ID of OAuth client to revive on start-up to provide
+                        sign-in route path.
  --base URL             base URL of this service as seen from OAuth peers
                         [default: https://springboard.rhobot.net/]
  --ssl DIR              where to find SSL server.key, server.crt, ca.crt
@@ -104,6 +109,13 @@ function main(argv, { fs, join, clock, randomBytes, http, https, express, passpo
     if (!capperStart.command(cli, config, saver, sturdy)) {
       // reserve the homepage before Capper does
       app.get('/', home);
+
+      // revive sign-in page
+      const clientID = cli['--sign-in'];
+      if (clientID) {
+        console.log('reviving sign-in client:', clientID);
+        saver.live(saver.credToId(clientID));
+      }
 
       if (config.domain.split(':')[0] === 'http') {
         console.log('WARNING! no SSL');
