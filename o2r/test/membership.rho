@@ -63,9 +63,9 @@ new insertArbitrary(`rho:registry:insertArbitrary`), stdout(`rho:io:stdout`), de
             @"role"!("412648251196702741") |
             @"userName"!("dckc#3040")) |
             @"publicKey"!("ebede01df79043137cf8a42a4989c755ce503bdf8064bfa161a9cb48f401784f")) |
-            @"memberSigTime"!("2018-10-21T03:20") |
+            @"memberSigTime"!("2018-10-22T03:30") |
             @"memberSignature"!("f51bc1a6cb68e121c16ccf00240367b669bc24fbf22da69e5669157bf3dee24550c67200e18cc7d136825c5910fb825ff7b32b0a5739e949857ff482d5199508")) |
-          @"endorsement"!("6339a85f250e339a8471c1324975dfd0b05eb5047431d9e47a2ecfb7783c4ddf85285ebf9e5b162d3b0aa48c379896d3a36cec736d05c47ea2af14f79ba04702")
+          @"endorsement"!("cc29b8a40cebe4bc6bfa9b4df5c7572db72f4f78f38af82f2ed08eab991a25dab1e9d615dd18a4d3156fb156a1dd5d01ce8ec6fd5adb2e12fc5bfce6c1888a0c")
         }, *added)
       |
       for (@what <- added) {
@@ -82,15 +82,15 @@ new insertArbitrary(`rho:registry:insertArbitrary`), stdout(`rho:io:stdout`), de
   new x in {
     @"ed25519Verify"!(
       {
-        @"binding"!(@"discord"!(@"guild"!("257555930173014017") |
-          @"id"!("358096357862408195") |
-          @"role"!("412648251196702741") |
-          @"userName"!("dckc#3040")) |
-          @"publicKey"!("ebede01df79043137cf8a42a4989c755ce503bdf8064bfa161a9cb48f401784f")) |
-        @"memberSigTime"!("2018-10-21T03:20") |
+@"binding"!(@"discord"!(@"guild"!("257555930173014017") |
+            @"id"!("358096357862408195") |
+            @"role"!("412648251196702741") |
+            @"userName"!("dckc#3040")) |
+            @"publicKey"!("ebede01df79043137cf8a42a4989c755ce503bdf8064bfa161a9cb48f401784f")) |
+            @"memberSigTime"!("2018-10-22T03:30") |
         @"memberSignature"!("f51bc1a6cb68e121c16ccf00240367b669bc24fbf22da69e5669157bf3dee24550c67200e18cc7d136825c5910fb825ff7b32b0a5739e949857ff482d5199508")
       }.toByteArray(),
-      "6339a85f250e339a8471c1324975dfd0b05eb5047431d9e47a2ecfb7783c4ddf85285ebf9e5b162d3b0aa48c379896d3a36cec736d05c47ea2af14f79ba04702".hexToBytes(),
+      "cc29b8a40cebe4bc6bfa9b4df5c7572db72f4f78f38af82f2ed08eab991a25dab1e9d615dd18a4d3156fb156a1dd5d01ce8ec6fd5adb2e12fc5bfce6c1888a0c".hexToBytes(),
       "1ad20b9fe34e2ab5715940ae2048d907ce7908921ca1dfd9763f0eb03dcb3f73".hexToBytes(),
       *x) |
     for(@ok <- x) {
